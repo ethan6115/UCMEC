@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Results / logs / artifacts
+results/
+*.pt
+*.pth
+*.mat
+*.tfevents*
+events.out.tfevents.*
+*.png
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

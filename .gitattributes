@@ -1,0 +1,39 @@
+# --------------------------------------------------
+# Global rule: treat text as text, normalize to LF
+# --------------------------------------------------
+* text=auto eol=lf
+
+# --------------------------------------------------
+# Explicit text files (force LF)
+# --------------------------------------------------
+*.py   text eol=lf
+*.sh   text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.ini  text eol=lf
+*.cfg  text eol=lf
+
+# --------------------------------------------------
+# Binary / generated artifacts (never normalize)
+# --------------------------------------------------
+*.pt        binary
+*.pth       binary
+*.mat       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.pdf       binary
+*.zip       binary
+*.tar       binary
+*.gz        binary
+*.tfevents* binary
+
+# --------------------------------------------------
+# Windows-specific
+# --------------------------------------------------
+*.bat text eol=crlf
+*.ps1 text eol=crlf
