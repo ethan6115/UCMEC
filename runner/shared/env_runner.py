@@ -49,6 +49,18 @@ class EnvRunner(Runner):
 
             for step in range(self.episode_length):
 
+                # Update channel state before any decision in this slot.
+                if self.use_hierarchical:
+                    if hasattr(self.envs, "envs"):
+                        for env in self.envs.envs:
+                            src = env.env if hasattr(env, "env") else env
+                            if hasattr(src, "advance_channel"):
+                                src.advance_channel()
+                    else:
+                        if hasattr(self.envs, "advance_channel"):
+                            self.envs.advance_channel()
+
+
                 #每 10 步（或你設定的 interval）取得高層動作，直接餵給環境
                 if self.use_hierarchical and (step % self.hierarchical_interval == 0):
                     self.high_trainer.prep_rollout()
@@ -70,9 +82,16 @@ class EnvRunner(Runner):
                     # Reason: runner does not define semantics; pass raw indices to env.
                     if hasattr(self.envs, "envs"):
                         for env, a in zip(self.envs.envs, action_id):
-                            env.set_high_action(a)
+                            src = env.env if hasattr(env, "env") else env
+                            if hasattr(src, "apply_high_action"):
+                                src.apply_high_action(a)
+                            else:
+                                src.set_high_action(a)
                     else:
-                        self.envs.set_high_action(action_id[0])
+                        if hasattr(self.envs, "apply_high_action"):
+                            self.envs.apply_high_action(action_id[0])
+                        else:
+                            self.envs.set_high_action(action_id[0])
                     # Reason: store decision-time transition for interval-avg reward.
                     self._high_transition = {
                         "global_obs": global_obs,
@@ -142,8 +161,8 @@ class EnvRunner(Runner):
                         masks_h[dones.all(axis=1)] = 0.0
                         t = self._high_transition
                         self.high_buffer.insert(
-                            t["global_obs"][:, None, :],
-                            t["global_obs"][:, None, :],
+                            t["global_obs"][:, None, ...],
+                            t["global_obs"][:, None, ...],
                         t["rnn_h"][:, None, ...], t["rnn_hc"][:, None, ...],
                             # Reason: store model output directly; no runner-side mapping.
                             t["action_h"][:, None, :], t["logp_h"][:, None, :],
@@ -262,8 +281,8 @@ class EnvRunner(Runner):
         #hierarchical
         if self.use_hierarchical:
             global_obs = self._get_global_obs_batch()
-            self.high_buffer.share_obs[0] = global_obs[:, None, :].copy()
-            self.high_buffer.obs[0] = global_obs[:, None, :].copy()
+            self.high_buffer.share_obs[0] = global_obs[:, None, ...].copy()
+            self.high_buffer.obs[0] = global_obs[:, None, ...].copy()
             # Reason: reset interval-avg reward tracking at episode start.
             self._high_reward_acc = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
             self._high_reward_count = 0

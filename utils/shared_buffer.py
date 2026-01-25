@@ -399,8 +399,12 @@ class SharedReplayBuffer(object):
         sampler = [rand[i * mini_batch_size:(i + 1) * mini_batch_size] for i in range(num_mini_batch)]
 
         if len(self.share_obs.shape) > 4:
-            share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
-            obs = self.obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs.shape[3:])
+            if len(self.share_obs.shape) == 5:
+                share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.share_obs.shape[3:])
+                obs = self.obs[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.obs.shape[3:])
+            else:
+                share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
+                obs = self.obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs.shape[3:])
         else:
             share_obs = _cast(self.share_obs[:-1])
             obs = _cast(self.obs[:-1])

@@ -7,26 +7,22 @@ import os
 # 可以把你要畫的 reward.mat 全部放在這個 list 裡
 mat_paths = [
     #IPPO
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\mappo\noncoop_paper_baseline\new_IPPO_lowlr\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\mappo\noncoop_paper_baseline\new_IPPO_cluster5_interval10_lowlr_gradnorm05\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\mappo\noncoop_paper_baseline\new_IPPO_cluster5_interval10_lowlr_gradnorm1\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\noncoop_rnn_test\IPPO_cluster5_commlim\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\noncoop_rnn_test\IPPO_cluster5\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5\reward.mat',
 
     #hierarchical
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO\reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_commlim\reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_commlim_newreward\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_commlim_newreward\high_reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front\reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser\high_reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser\reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_attset\high_reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\high_reward.mat',
+
 
     #hierarchical peruser
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser_commlim\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser_commlim_newreward\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser_commlim_newreward\high_reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser\reward.mat'
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\high_reward.mat'
 
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\noncoop_rnn_test\IPPO_cluster5\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\noncoop_rnn_test\IPPO_cluster5_commlim\reward.mat',
+
 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\coop_rnn_test\MAPPO_coop_commlim\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\coop_rnn_test\MAPPO_biggermodel\reward.mat'
@@ -107,4 +103,4 @@ def plot_rewards(file_paths, window_size=5, show_raw=False):
     # plt.savefig('training_result_multi.png')
 
 if __name__ == "__main__":
-    plot_rewards(mat_paths, window_size=20, show_raw=False)
+    plot_rewards(mat_paths, window_size=50, show_raw=False)

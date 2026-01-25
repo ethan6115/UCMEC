@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import sys
 import os
+import copy
 
 # 將 UCMEC-mmWave-Fronthaul 資料夾加入系統路徑，以確保能匯入 envs 和 algorithms
 # 假設此腳本位於 UCMEC-mmWave-Fronthaul 資料夾的上一層或同層
@@ -9,12 +10,12 @@ current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 
 # Toggle here to switch evaluation mode without CLI args.
-USE_HIERARCHICAL = False
+USE_HIERARCHICAL = True
 PER_USER = False
 HIERARCHICAL_INTERVAL = 10
 USE_RECURRENT = True
-#SEEDS = [1, 2, 3, 4, 5]
-SEEDS = [6, 7, 8, 9, 10]
+SEEDS = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+#SEEDS = [6, 7, 8, 9, 10]
 #SEEDS = [3]
 
 def make_env(seed):
@@ -25,20 +26,21 @@ def make_env(seed):
             return MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True, seed=seed)
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 #IPPO
-MODEL_LOW = "C:/DCNLab/UCMEC/UCMEC-mmWave-Fronthaul/results/MyEnv/MyEnv/rmappo/noncoop_rnn_test/IPPO_cluster5/models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5\models/actor_999.pt"
 #peruser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser/models/actor_high.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser_commlim_newreward/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO_peruser_commlim_newreward/models/actor_high.pt"
-#alluser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\hierarchical_noncoop_rnn_test\hierarchical_IPPO/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser/models/actor_high.pt"
 
+#alluser
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front/models/actor_999.pt"
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser/models/actor_high.pt"
 # 匯入必要的模組
 try:
     from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser
+    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from config import get_config
@@ -53,10 +55,16 @@ def evaluate(model_path):
     parser = get_config()
     # 如果你的訓練參數有大幅修改（例如 hidden_size），請在這裡透過參數覆蓋，或是確保 config.py 是正確的
     args = parser.parse_args([])
+    high_args = copy.deepcopy(args)
+    high_args.hidden_size = 128
     # Reason: match evaluation actor to recurrent checkpoint if needed.
     if USE_RECURRENT:
         args.use_recurrent_policy = True
         args.use_naive_recurrent_policy = False
+        high_args.use_recurrent_policy = True
+        high_args.use_naive_recurrent_policy = False
+    high_args.use_set_encoder = True
+
     
     # 設定使用 CPU 進行推論 (除非你有 GPU 且想用)
     device = torch.device("cpu")
@@ -96,7 +104,7 @@ def evaluate(model_path):
     if USE_HIERARCHICAL:
         high_obs_space = env.high_observation_space
         high_act_space = env.high_action_space
-        high_actor = R_Actor(args, high_obs_space, high_act_space, device)
+        high_actor = R_Actor(high_args, high_obs_space, high_act_space, device)
         print(f"Loading model: {MODEL_HIGH}")
         if os.path.exists(MODEL_HIGH):
             state_dict = torch.load(MODEL_HIGH, map_location=device)
@@ -119,6 +127,8 @@ def evaluate(model_path):
         "avg_actual_process_delay_ms": [],
         "avg_uplink_rate_Mbps": [],
         "avg_offloading_users": [],
+        "deadline_satisfaction_ratio": [],
+        "offloading_deadline_satisfaction_ratio": [],
         "power_dist": [],
     }
 
@@ -137,6 +147,8 @@ def evaluate(model_path):
         allsum_avg_actual_process_delay = 0.0
         allsum_avg_uplink_rate = 0.0
         allsum_num_offloading_users = 0.0
+        allsum_deadline_satisfaction_ratio = 0.0
+        allsum_offloading_deadline_satisfaction_ratio = 0.0
         allsum_power_dist = np.zeros(4, dtype=np.float64)
 
         for _ in range(num_episodes):
@@ -153,6 +165,10 @@ def evaluate(model_path):
             sum_avg_actual_process_delay = 0.0
             sum_avg_uplink_rate = 0.0
             sum_num_offloading_users = 0.0
+            sum_deadline_satisfaction_ratio = 0.0
+            sum_agent_steps = 0
+            sum_offloading_deadline_satisfaction_ratio = 0.0
+            sum_offload_steps = 0
             sum_power_dist = np.zeros(4, dtype=np.float64)
             metric_steps = 0
             dist_steps = 0
@@ -160,17 +176,29 @@ def evaluate(model_path):
             dones = [False] * env.n_agents
 
             if USE_HIERARCHICAL:
-                high_rnn_states = np.zeros((1, args.recurrent_N, args.hidden_size), dtype=np.float32)
+                high_rnn_states = np.zeros((1, high_args.recurrent_N, high_args.hidden_size), dtype=np.float32)
                 high_masks = np.ones((1, 1), dtype=np.float32)
+                attn_max_list = []
+                attn_entropy_list = []
 
             step_count = 0
             while not all(dones):
+                if USE_HIERARCHICAL and hasattr(env, "advance_channel"):
+                    env.advance_channel()
+
                 if USE_HIERARCHICAL and (step_count % HIERARCHICAL_INTERVAL == 0):
-                    global_obs = env.get_global_obs().reshape(1, -1)
+                    global_obs = env.get_global_obs()
+                    global_obs = np.expand_dims(global_obs, axis=0)
                     with torch.no_grad():
                         high_action, _, high_rnn_states = high_actor(
                             global_obs, high_rnn_states, high_masks, deterministic=True
                         )
+                    if hasattr(high_actor, "base"):
+                        enc = high_actor.base
+                        if getattr(enc, "last_attn_max", None) is not None:
+                            attn_max_list.append(enc.last_attn_max)
+                        if getattr(enc, "last_attn_entropy", None) is not None:
+                            attn_entropy_list.append(enc.last_attn_entropy)
                     if PER_USER:
                         high_action = high_action.cpu().numpy()
                         num_classes = len(env.cluster_size_candidates)
@@ -180,7 +208,10 @@ def evaluate(model_path):
                         high_action = high_action.astype(int).squeeze(0)
                     else:
                         high_action = int(high_action.cpu().numpy().flatten()[0])
-                    env.set_high_action(high_action)
+                    if hasattr(env, "apply_high_action"):
+                        env.apply_high_action(high_action)
+                    else:
+                        env.set_high_action(high_action)
                     
                 obs_batch = np.stack(obs)
                 with torch.no_grad():
@@ -219,6 +250,19 @@ def evaluate(model_path):
                                     sum_uplink_delay_max += float(np.max(uplink_delay_ms))
                                     sum_uplink_delay_p95 += float(np.percentile(uplink_delay_ms, 95))
                         metric_steps += 1
+                        # Per-agent delay probability (all agents vs offloading only).
+                        if hasattr(env, "delay_last") and hasattr(env, "omega_last"):
+                            delay_last = env.delay_last
+                            omega_last = env.omega_last
+                            if delay_last is not None and omega_last is not None:
+                                delay_ms = delay_last[:env.M_sim, 0] * 1000.0
+                                sum_deadline_satisfaction_ratio += float(np.sum(delay_ms <= 100.0))
+                                sum_agent_steps += int(delay_ms.size)
+                                offload_mask = omega_last != 0
+                                if np.any(offload_mask):
+                                    offload_delay_ms = delay_ms[offload_mask]
+                                    sum_offloading_deadline_satisfaction_ratio += float(np.sum(offload_delay_ms <= 100.0))
+                                    sum_offload_steps += int(offload_delay_ms.size)
 
                 # Power distribution over all agents (including local=0).
                 if hasattr(env, "p_last") and env.p_last is not None:
@@ -246,8 +290,21 @@ def evaluate(model_path):
                 allsum_avg_actual_process_delay += sum_avg_actual_process_delay / metric_steps
                 allsum_avg_uplink_rate += sum_avg_uplink_rate / metric_steps
                 allsum_num_offloading_users += sum_num_offloading_users / metric_steps
+                if sum_agent_steps > 0:
+                    allsum_deadline_satisfaction_ratio += sum_deadline_satisfaction_ratio / sum_agent_steps
+                if sum_offload_steps > 0:
+                    allsum_offloading_deadline_satisfaction_ratio += sum_offloading_deadline_satisfaction_ratio / sum_offload_steps
             if dist_steps > 0:
                 allsum_power_dist += sum_power_dist / dist_steps
+            if USE_HIERARCHICAL and attn_max_list:
+                attn_max_arr = np.array(attn_max_list, dtype=np.float32)
+                attn_ent_arr = np.array(attn_entropy_list, dtype=np.float32)
+                print(
+                    f"attn_max: mean={attn_max_arr.mean():.4f} p5={np.percentile(attn_max_arr, 5):.4f} min={attn_max_arr.min():.4f}"
+                )
+                print(
+                    f"attn_entropy: mean={attn_ent_arr.mean():.4f} p5={np.percentile(attn_ent_arr, 5):.4f} min={attn_ent_arr.min():.4f}"
+                )
 
         seed_results["avg_total_delay_ms"].append(allsum_avg_total_delay / num_episodes)
         seed_results["avg_local_delay_ms"].append(allsum_avg_local_delay / num_episodes)
@@ -258,6 +315,8 @@ def evaluate(model_path):
         seed_results["avg_actual_process_delay_ms"].append(allsum_avg_actual_process_delay / num_episodes)
         seed_results["avg_uplink_rate_Mbps"].append(allsum_avg_uplink_rate / num_episodes)
         seed_results["avg_offloading_users"].append(allsum_num_offloading_users / num_episodes)
+        seed_results["deadline_satisfaction_ratio"].append(allsum_deadline_satisfaction_ratio / num_episodes)
+        seed_results["offloading_deadline_satisfaction_ratio"].append(allsum_offloading_deadline_satisfaction_ratio / num_episodes)
         seed_results["power_dist"].append(allsum_power_dist / num_episodes)
 
     print("Summary over seeds (mean +/- std):")
@@ -272,6 +331,8 @@ def evaluate(model_path):
             continue
         vals = np.array(vals, dtype=np.float32)
         print(f"  {key}: {vals.mean():.4f} ? {vals.std():.4f}")
+        if key == "avg_front_delay_ms" or key == "avg_uplink_delay_ms":
+            print(vals)
 
 if __name__ == "__main__":
     #model_file = "C:/DCNLab/UCMEC/UCMEC-mmWave-Fronthaul/results/MyEnv/MyEnv/mappo/noncoop_paper_baseline/paper_interval10/models/actor.pt" 

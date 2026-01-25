@@ -10,6 +10,7 @@ import torch.nn as nn
 from algorithms.utils.util import init, check
 from algorithms.utils.cnn import CNNBase
 from algorithms.utils.mlp import MLPBase
+from algorithms.utils.set_encoder import SetEncoder
 from algorithms.utils.rnn import RNNLayer
 from algorithms.utils.act import ACTLayer
 from algorithms.utils.popart import PopArt
@@ -37,7 +38,12 @@ class R_Actor(nn.Module):
         self.tpdv = dict(dtype=torch.float32, device=device)
 
         obs_shape = get_shape_from_obs_space(obs_space)
-        base = CNNBase if len(obs_shape) == 3 else MLPBase
+        if len(obs_shape) == 3:
+            base = CNNBase
+        elif getattr(args, "use_set_encoder", False) and len(obs_shape) == 2:
+            base = SetEncoder
+        else:
+            base = MLPBase
         self.base = base(args, obs_shape)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
@@ -134,7 +140,12 @@ class R_Critic(nn.Module):
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
 
         cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
-        base = CNNBase if len(cent_obs_shape) == 3 else MLPBase
+        if len(cent_obs_shape) == 3:
+            base = CNNBase
+        elif getattr(args, "use_set_encoder", False) and len(cent_obs_shape) == 2:
+            base = SetEncoder
+        else:
+            base = MLPBase
         self.base = base(args, cent_obs_shape)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:

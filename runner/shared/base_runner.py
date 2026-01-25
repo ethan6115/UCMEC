@@ -103,9 +103,11 @@ class Runner(object):
             high_args.entropy_coef = self.all_args.high_entropy_coef
             high_args.value_loss_coef = self.all_args.high_value_loss_coef
             high_args.max_grad_norm = self.all_args.high_max_grad_norm
-            high_args.gamma = self.all_args.high_gamma
+            # Reason: match high-level discount to macro-step length.
+            high_args.gamma = self.all_args.gamma ** self.hierarchical_interval
             high_args.gae_lambda = self.all_args.high_gae_lambda
             high_args.episode_length = int(math.ceil(self.episode_length / self.hierarchical_interval))
+            high_args.use_set_encoder = True
 
             env0 = self.envs.envs[0] if hasattr(self.envs, "envs") else self.envs
             # Reason: spaces are defined in env, runner only consumes them.
