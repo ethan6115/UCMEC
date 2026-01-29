@@ -9,25 +9,32 @@ mat_paths = [
     #IPPO
     r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5\reward.mat',
 
-    #hierarchical
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front\reward.mat',
+    #hierarchical alluser
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser\high_reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front_attn\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_attset\high_reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\high_reward.mat',
 
 
     #hierarchical peruser
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser\reward.mat'
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser_attn\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\run1\high_reward.mat'
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\run1\reward.mat', 
+
+    #mappo
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\coop_rnn\MAPPO_cluster5\reward.mat',
+
+    #mappo_peruser
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\run1\reward.mat',
 
 
-
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\coop_rnn_test\MAPPO_coop_commlim\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\coop_rnn_test\MAPPO_biggermodel\reward.mat'
-
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\MyEnv\MyEnv\rmappo\noncoop_mappo_test\MAPPO_noncoop_commlim\reward.mat'
+    #fix_IPPO
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_fixlow\hierarchical_fixIPPO_peruser_ratio\reward.mat',    
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_fixlow\run1\high_reward.mat',    
     # r'... 再加其他檔案路徑',
 ]
 

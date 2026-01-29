@@ -48,6 +48,10 @@ class Runner(object):
 
         # dir
         self.model_dir = self.all_args.model_dir
+        self.low_model_dir = getattr(self.all_args, "low_model_dir", None)
+        self.high_model_dir = getattr(self.all_args, "high_model_dir", None)
+        self.freeze_low = getattr(self.all_args, "freeze_low", False)
+        self.freeze_high = getattr(self.all_args, "freeze_high", False)
 
         self.run_dir = config["run_dir"]
         self.log_dir = str(self.run_dir / 'logs')
@@ -70,7 +74,7 @@ class Runner(object):
                             self.envs.action_space[0],
                             device = self.device)
 
-        if self.model_dir is not None:
+        if self.model_dir is not None or self.low_model_dir is not None or self.high_model_dir is not None:
             self.restore()
 
         # algorithm
@@ -86,6 +90,7 @@ class Runner(object):
         # ----- hierarchical config -----
         self.use_hierarchical = getattr(self.all_args, "use_hierarchical", False)
         self.hierarchical_interval = getattr(self.all_args, "hierarchical_interval", 1)
+        self.use_high_peruser = getattr(self.all_args, "use_high_peruser", False)
         self.cluster_size_candidates = getattr(
             self.all_args, "cluster_size_candidates", [1, 3, 5, 10]
         )
@@ -97,26 +102,53 @@ class Runner(object):
             self.high_obs_space = gym.spaces.Box(
                 low=-np.inf, high=np.inf, shape=global_obs.shape, dtype=np.float32
             )
-            self.high_action_space = gym.spaces.Discrete(len(self.cluster_size_candidates))
+            if self.use_high_peruser and hasattr(env0, "high_action_space") and env0.high_action_space is not None:
+                self.high_action_space = env0.high_action_space
+            else:
+                self.high_action_space = gym.spaces.Discrete(len(self.cluster_size_candidates))
 
-            # 高階 policy / trainer
-            self.high_policy = Policy(
-                self.all_args,
-                self.high_obs_space,
-                self.high_obs_space,
-                self.high_action_space,
-                device=self.device,
-            )
-            self.high_trainer = TrainAlgo(self.all_args, self.high_policy, device=self.device)
+            if self.use_high_peruser:
+                from algorithms.algorithm.high_policy import HighPolicy
+                from utils.high_buffer import HighReplayBuffer
 
-            # 高階 buffer：num_agents=1
-            self.high_buffer = SharedReplayBuffer(
-                self.all_args,
-                1,
-                self.high_obs_space,
-                self.high_obs_space,
-                self.high_action_space,
-            )
+                self.high_policy = HighPolicy(
+                    self.all_args,
+                    self.high_obs_space,
+                    self.high_obs_space,
+                    self.high_action_space,
+                    device=self.device,
+                )
+                self.high_trainer = TrainAlgo(self.all_args, self.high_policy, device=self.device)
+                self.high_buffer = HighReplayBuffer(self.all_args, self.high_obs_space)
+            else:
+                self.high_policy = Policy(
+                    self.all_args,
+                    self.high_obs_space,
+                    self.high_obs_space,
+                    self.high_action_space,
+                    device=self.device,
+                )
+                self.high_trainer = TrainAlgo(self.all_args, self.high_policy, device=self.device)
+
+                self.high_buffer = SharedReplayBuffer(
+                    self.all_args,
+                    1,
+                    self.high_obs_space,
+                    self.high_obs_space,
+                    self.high_action_space,
+                )
+        if self.freeze_low:
+            for p in self.policy.actor.parameters():
+                p.requires_grad = False
+            for p in self.policy.critic.parameters():
+                p.requires_grad = False
+        if self.use_hierarchical and self.freeze_high:
+            for p in self.high_policy.actor.parameters():
+                p.requires_grad = False
+            for p in self.high_policy.critic.parameters():
+                p.requires_grad = False
+
+
 
     def run(self):
         """Collect training data, perform training updates, and evaluate policy."""
@@ -149,12 +181,14 @@ class Runner(object):
     
     def train(self):
         """Train policies with data in buffer. """
+        if self.freeze_low:
+            return {}
         self.trainer.prep_training()
-        train_infos = self.trainer.train(self.buffer)      
+        train_infos = self.trainer.train(self.buffer)
         self.buffer.after_update()
         return train_infos
 
-    def save(self, episode=None):
+    def save(self, episode=None, save_high_final=False):
         """Save policy's actor and critic networks."""
         policy_actor = self.trainer.policy.actor
         policy_critic = self.trainer.policy.critic
@@ -171,25 +205,39 @@ class Runner(object):
         torch.save(policy_critic.state_dict(), str(self.save_dir) + critic_name)
         # save()
         if self.use_hierarchical:
-            torch.save(self.high_trainer.policy.actor.state_dict(), str(self.save_dir) + "/actor_high.pt")
-            torch.save(self.high_trainer.policy.critic.state_dict(), str(self.save_dir) + "/critic_high.pt")
+            if save_high_final or episode is None:
+                torch.save(self.high_trainer.policy.actor.state_dict(), str(self.save_dir) + "/actor_high.pt")
+                torch.save(self.high_trainer.policy.critic.state_dict(), str(self.save_dir) + "/critic_high.pt")
+            elif episode % 100 == 0:
+                torch.save(
+                    self.high_trainer.policy.actor.state_dict(),
+                    str(self.save_dir) + f"/actor_high_{episode}.pt",
+                )
+                torch.save(
+                    self.high_trainer.policy.critic.state_dict(),
+                    str(self.save_dir) + f"/critic_high_{episode}.pt",
+                )
 
         
 
 
     def restore(self):
         """Restore policy's networks from a saved model."""
-        policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
+        model_dir = self.low_model_dir or self.model_dir
+        if model_dir is None:
+            model_dir = self.model_dir
+        policy_actor_state_dict = torch.load(str(model_dir) + '/actor.pt')
         self.policy.actor.load_state_dict(policy_actor_state_dict)
         if not self.all_args.use_render:
-            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+            policy_critic_state_dict = torch.load(str(model_dir) + '/critic.pt')
             self.policy.critic.load_state_dict(policy_critic_state_dict)
             # restore()
             if self.use_hierarchical:
-                high_actor = torch.load(str(self.model_dir) + "/actor_high.pt")
+                high_dir = self.high_model_dir or self.model_dir
+                high_actor = torch.load(str(high_dir) + "/actor_high.pt")
                 self.high_policy.actor.load_state_dict(high_actor)
                 if not self.all_args.use_render:
-                    high_critic = torch.load(str(self.model_dir) + "/critic_high.pt")
+                    high_critic = torch.load(str(high_dir) + "/critic_high.pt")
                     self.high_policy.critic.load_state_dict(high_critic)
  
     def log_train(self, train_infos, total_num_steps):

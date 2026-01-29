@@ -667,6 +667,9 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
                 else:
                     front_delay[i, 0] = 0.0
 
+        # store front delay for evaluation
+        self.front_delay_last = front_delay
+
         # processing delay calculation
         # solve convex problem according to Eq. (24)
         task_mat = np.zeros([self.M_sim, self.K])

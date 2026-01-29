@@ -21,6 +21,12 @@ class SetEncoder(nn.Module):
 
         self.mlp = MLPLayer(obs_dim, self.hidden_size,
                             self._layer_N, self._use_orthogonal, self._use_ReLU)
+        num_heads = getattr(args, "set_num_heads", getattr(args, "high_num_heads", 4))
+        if self.hidden_size % num_heads != 0:
+            num_heads = 1
+        self.attn = nn.MultiheadAttention(
+            embed_dim=self.hidden_size, num_heads=num_heads, batch_first=True
+        )
         self.attn_score = nn.Linear(self.hidden_size, 1)
         #print max, entropy
         self.last_attn_max = None
@@ -36,6 +42,7 @@ class SetEncoder(nn.Module):
         x = self.mlp(x)
         x = x.reshape(batch_size, set_size, -1)
         #x = x.mean(dim=1) #平均版deepset
+        x, _ = self.attn(x, x, x, need_weights=False)
         scores = self.attn_score(x).squeeze(-1)
         weights = torch.softmax(scores / self.tau, dim=1).unsqueeze(-1)
         #print max, entropy

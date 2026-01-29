@@ -73,7 +73,12 @@ class EnvRunner(Runner):
                         self.high_buffer.masks[self.high_buffer.step].squeeze(1),
                     )
                     action_h = _t2n(action_h)
-                    if action_h.ndim == 2 and action_h.shape[1] == 1:
+                    if self.use_high_peruser:
+                        if getattr(self.high_action_space, "__class__", None).__name__ == "MultiDiscrete":
+                            action_id = action_h.astype(int)
+                        else:
+                            action_id = action_h.squeeze(-1).astype(int)
+                    elif action_h.ndim == 2 and action_h.shape[1] == 1:
                         # Discrete high-level: shape [n_threads, 1]
                         action_id = action_h.squeeze(-1).astype(int)
                     else:
@@ -157,19 +162,33 @@ class EnvRunner(Runner):
                     episode_end = step == (self.episode_length - 1)
                     if interval_end or episode_end:
                         avg_reward = self._high_reward_acc / max(1, self._high_reward_count)
+                        #sum_reward = self._high_reward_acc
                         masks_h = np.ones((self.n_rollout_threads, 1, 1), dtype=np.float32)
                         masks_h[dones.all(axis=1)] = 0.0
                         t = self._high_transition
-                        self.high_buffer.insert(
-                            t["global_obs"][:, None, ...],
-                            t["global_obs"][:, None, ...],
-                        t["rnn_h"][:, None, ...], t["rnn_hc"][:, None, ...],
-                            # Reason: store model output directly; no runner-side mapping.
-                            t["action_h"][:, None, :], t["logp_h"][:, None, :],
-                            t["value_h"][:, None, :],
-                            avg_reward[:, None, :],
-                            masks_h
-                        )
+                        if self.use_high_peruser:
+                            self.high_buffer.insert(
+                                t["global_obs"],
+                                t["global_obs"],
+                                t["rnn_h"][:, None, ...],
+                                t["rnn_hc"][:, None, ...],
+                                t["action_h"],
+                                t["logp_h"],
+                                t["value_h"][:, None, :],
+                                avg_reward.reshape(self.n_rollout_threads, 1, 1),
+                                masks_h,
+                            )
+                        else:
+                            self.high_buffer.insert(
+                                t["global_obs"][:, None, ...],
+                                t["global_obs"][:, None, ...],
+                                t["rnn_h"][:, None, ...], t["rnn_hc"][:, None, ...],
+                                # Reason: store model output directly; no runner-side mapping.
+                                t["action_h"][:, None, :], t["logp_h"][:, None, :],
+                                t["value_h"][:, None, :],
+                                avg_reward[:, None, :],
+                                masks_h
+                            )
                         self._high_pending = False
                     high_episode_reward_sum += step_reward
                     high_episode_reward_count += 1
@@ -180,16 +199,24 @@ class EnvRunner(Runner):
             train_infos = self.train()
 
             #對高層 PPO 做 GAE / 更新
-            if self.use_hierarchical:
+            if self.use_hierarchical and not self.freeze_high:
                 # compute return
                 # Reason: compute returns from high_buffer contents like low-level.
                 self.high_trainer.prep_rollout()
-                next_values = self.high_trainer.policy.get_values(
-                    np.concatenate(self.high_buffer.share_obs[-1]),
-                    np.concatenate(self.high_buffer.rnn_states_critic[-1]),
-                    np.concatenate(self.high_buffer.masks[-1]),
-                )
-                next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
+                if self.use_high_peruser:
+                    next_values = self.high_trainer.policy.get_values(
+                        self.high_buffer.share_obs[-1],
+                        self.high_buffer.rnn_states_critic[-1].squeeze(1),
+                        self.high_buffer.masks[-1].squeeze(1),
+                    )
+                    next_values = _t2n(next_values)[:, None, :]
+                else:
+                    next_values = self.high_trainer.policy.get_values(
+                        np.concatenate(self.high_buffer.share_obs[-1]),
+                        np.concatenate(self.high_buffer.rnn_states_critic[-1]),
+                        np.concatenate(self.high_buffer.masks[-1]),
+                    )
+                    next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
                 self.high_buffer.compute_returns(next_values, self.high_trainer.value_normalizer)
                 # train
                 self.high_trainer.prep_training()
@@ -201,7 +228,7 @@ class EnvRunner(Runner):
 
             # save model
             if episode % self.save_interval == 0 or episode == episodes - 1:
-                self.save(episode)
+                self.save(episode, save_high_final=(episode == episodes - 1))
             #accumulate high reward
             if self.use_hierarchical and high_reward_list is not None and high_episode_reward_count > 0:
                 high_reward_list[episode, 0] = float(
@@ -247,6 +274,9 @@ class EnvRunner(Runner):
                 # train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards)
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                if self.use_hierarchical and high_reward_list is not None:
+                    train_infos["average_episode_rewards_high"] = float(high_reward_list[episode, 0])
+                    print("average high-level rewards is {}".format(train_infos["average_episode_rewards_high"]))
                 self.log_train(train_infos, total_num_steps)
                 reward_list[episode, 0] = np.mean(self.buffer.rewards)
                 # self.log_env(env_infos, total_num_steps)
@@ -281,8 +311,12 @@ class EnvRunner(Runner):
         #hierarchical
         if self.use_hierarchical:
             global_obs = self._get_global_obs_batch()
-            self.high_buffer.share_obs[0] = global_obs[:, None, ...].copy()
-            self.high_buffer.obs[0] = global_obs[:, None, ...].copy()
+            if self.use_high_peruser:
+                self.high_buffer.share_obs[0] = global_obs.copy()
+                self.high_buffer.obs[0] = global_obs.copy()
+            else:
+                self.high_buffer.share_obs[0] = global_obs[:, None, ...].copy()
+                self.high_buffer.obs[0] = global_obs[:, None, ...].copy()
             # Reason: reset interval-avg reward tracking at episode start.
             self._high_reward_acc = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
             self._high_reward_count = 0

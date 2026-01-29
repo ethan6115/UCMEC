@@ -3,7 +3,6 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 import math
-# from stable_baselines3.common.env_checker import check_env
 import cvxpy as cp
 
 class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
@@ -65,10 +64,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # user parameter
         #self.C_user = self.rng.uniform(2e8, 5e8, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(2e9, 5e9, [1, self.M])  # computing resource of users  in Hz
-        self.current_cluster_size = 5  
-        # Per-user cluster sizes for hierarchical high-level control.
-        self.current_cluster_sizes = None
-        self.current_cluster_onehot = None
+        self.current_cluster_size = np.full(self.M_sim, 5, dtype=np.int32)
 
         # edge server parameter
         self.C_edge = self.rng.uniform(20e9, 40e9, [self.K, 1])  # computing resource of edge server in CPU #由10~20增加五倍
@@ -156,33 +152,33 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # parameter init
         self.n_agents = self.M_sim
         self.agent_num = self.n_agents
-        self.obs_dim = 5  # set the observation dimension of agents
+        self.obs_dim = 6  # set the observation dimension of agents
+        #self.obs_dim = 5  
         self.action_dim = 10
         self._render = render
 
-        # High-level observation: top-10 beta per agent + last cluster size + segment avg delay.
-        self.max_delay = 2.0
-        self.cluster_size_candidates = [1, 3, 5, 7, 9]
-        # Per-user action index (length = M_sim).
+        # High-level observation: top-10 beta per agent + last cluster size + per-user delay/uplink/front + position/speed.
+        self.max_delay = 1.0
+        self.cluster_size_candidates = list(range(1, 11))
         self.high_action_space = spaces.MultiDiscrete(
-            [len(self.cluster_size_candidates)] * self.M_sim
+            np.array([len(self.cluster_size_candidates)] * self.M_sim)
         )
-        if hasattr(self.high_action_space, "n"):
-            self.high_action_dim = int(self.high_action_space.n)
-        else:
-            self.high_action_dim = int(np.prod(self.high_action_space.nvec))
-        # beta_top10 (M_sim*10) + per-user cluster sizes (M_sim) + segment avg delay (1)
-        self.high_obs_dim = self.M_sim * 10 + self.M_sim + 1
+        self.high_action_dim = len(self.cluster_size_candidates)
+        self.high_obs_dim = 26
         self.high_observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self.high_obs_dim,), dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(self.M_sim, self.high_obs_dim), dtype=np.float32
         )
-        self._segment_delay_sum = 0.0
+        self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_delay_count = 0
-        self._segment_avg_delay = 0.0
-        self.last_cluster_size = self.current_cluster_size
+        self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_front = np.zeros((self.M_sim,), dtype=np.float32)
         self._pending_high_action = None #記住高層動作
         self._channel_ready = False
         self.theta_current = None
+        self.last_cluster_size = self.current_cluster_size.copy()
         # action space: [omega_1,omega_2,...,omega_K,p]  K+1 continuous vector for each agent
         # a in {0,1,2,3,4}, p in {0, 1, 2, 3, 4} (totally 5 levels (p+1)/5*100 mW)
         self.omega_last = np.zeros([self.M_sim])
@@ -191,7 +187,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(10)] * self.n_agents))
         # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
         # r in [0, 10e8]
-        self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 2.0])   #對obs做正規化用的，根據論文修改100000改為819200
+        #self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 2.0])  
+        self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 2.0, 10.0])   #對obs做正規化用的，根據論文修改100000改為819200
         self.obs_low = np.zeros(self.obs_dim)  # [0, 0, 0, 0, 0]
         self.obs_high = np.ones(self.obs_dim)  # [1, 1, 1, 1, 1]
         # obs = {task data size, task computing density, action index, total delay of last time slot}
@@ -275,12 +272,14 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
     
     # [新增] 上層控制接口
     def set_high_action(self, action_id):
-        # Reason: accept per-user indices (or scalar) without runner-side semantics.
-        action_id = np.asarray(action_id, dtype=int)
-        if action_id.shape == ():
-            # Backward-compatible single scalar.
-            action_id = np.full((self.M_sim,), int(action_id), dtype=int)
-        action_id = np.clip(action_id, 0, len(self.cluster_size_candidates) - 1)
+        # Reason: accept per-user indices (or one-hot) without runner-side semantics.
+        if isinstance(action_id, (list, np.ndarray)):
+            action_id = np.asarray(action_id)
+            if action_id.ndim == 2:
+                action_id = np.argmax(action_id, axis=1)
+        else:
+            action_id = np.full(self.M_sim, int(action_id))
+        action_id = np.clip(action_id.astype(np.int32), 0, len(self.cluster_size_candidates) - 1)
         self._pending_high_action = action_id
 
     def apply_high_action(self, action_id=None):
@@ -288,26 +287,26 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             if self._pending_high_action is None:
                 return
             action_id = self._pending_high_action
-        action_id = np.asarray(action_id, dtype=int)
-        if action_id.shape == ():
-            action_id = np.full((self.M_sim,), int(action_id), dtype=int)
+        action_id = np.asarray(action_id, dtype=np.int32)
+        if action_id.ndim == 0:
+            action_id = np.full(self.M_sim, int(action_id))
         action_id = np.clip(action_id, 0, len(self.cluster_size_candidates) - 1)
-        self.current_cluster_sizes = np.array(
-            [self.cluster_size_candidates[idx] for idx in action_id],
-            dtype=int,
+        self.current_cluster_size = np.array(
+            [self.cluster_size_candidates[int(idx)] for idx in action_id], dtype=np.int32
         )
-        self.current_cluster_onehot = np.eye(
-            len(self.cluster_size_candidates), dtype=np.int32
-        )[action_id]
-        self.current_cluster_size = int(self.current_cluster_sizes[0])
-        self.last_cluster_size = self.current_cluster_size
-        self._segment_delay_sum = 0.0
+        self.last_cluster_size = self.current_cluster_size.copy()
+        self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_delay_count = 0
-        self._segment_avg_delay = 0.0
+        self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_front = np.zeros((self.M_sim,), dtype=np.float32)
         self.cluster_matrix = self.cluster()
         self._pending_high_action = None
 
     def advance_channel(self):
+        # Update positions, pathloss, and channel for the current slot.
         if self.is_mobile:
             max_speed = 20 * self.tau_c
             min_speed = 10 * self.tau_c
@@ -349,47 +348,74 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             term = (self.d_1 / 1000.0) ** 1.5 * (self.d_0 / 1000.0) ** 2
             self.PL[near_mask] = -self.L - 10 * np.log10(term)
 
-        kappa_1 = self.rng.standard_normal((1, self.N))
-        kappa_2 = self.rng.standard_normal((self.M, 1))
-        self.mu = np.sqrt(self.delta) * kappa_1 + np.sqrt(1 - self.delta) * kappa_2
-
         self.beta = np.power(10, self.PL / 10.0) * np.power(10, (self.sigma_s * self.mu) / 10.0)
-
+        '''沒有用到
         self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_real)
         self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_imag)
         self.h_real *= 0.5
         self.h_imag *= 0.5
         self.h = self.h_real + 1j * self.h_imag
-
+        
         self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
+        '''
         self.theta_current = (self.tau_p * self.P_max * (self.beta ** 2)) / (
             self.tau_p * self.P_max * self.beta + self.noise_access
         )
         self._channel_ready = True
         return self.get_global_obs()
-
+        
 
     # [新增] 全域觀測接口
     def get_global_obs(self):
         beta_top10 = []
+        front_stats = np.zeros((self.M_sim, 9), dtype=np.float32)
         for i in range(self.M_sim):
             beta_row = self.beta[i, :self.N_sim]
             top_idx = np.argsort(beta_row)[::-1][:10]
             beta_top10.append(beta_row[top_idx])
-        beta_top10 = np.array(beta_top10, dtype=np.float32).reshape(-1)
+            ap_idx = top_idx
+            for cpu in range(self.K):
+                dist_km = self.distance_matrix_front[ap_idx, cpu] / 1000.0
+                dist_km = np.maximum(dist_km, 1e-6)
+                alpha = np.where(self.link_type[ap_idx, cpu] == 0, self.alpha_los, self.alpha_nlos)
+                pathloss = np.power(dist_km, -alpha)
+                pl_db = 10.0 * np.log10(pathloss + 1e-12)
+                pl_norm = pl_db / 40.0
+                stats = np.array(
+                    [
+                        float(np.mean(pl_norm)),
+                        float(np.min(pl_norm)),
+                        float(np.std(pl_norm)),
+                    ],
+                    dtype=np.float32,
+                )
+                start = cpu * 3
+                front_stats[i, start:start + 3] = stats
+        beta_top10 = np.array(beta_top10, dtype=np.float32)
         #beta normalization
         beta_db = 10.0 * np.log10(beta_top10 + 1e-12)
         beta_db = np.clip(beta_db, -120.0, -80.0)
         beta_norm = (beta_db + 120.0) / 40.0
-        # Per-user cluster size normalization (1..9) => /10.0 for scale.
-        if self.current_cluster_sizes is None:
-            cluster_sizes = np.full((self.M_sim,), self.last_cluster_size, dtype=np.float32)
-        else:
-            cluster_sizes = self.current_cluster_sizes.astype(np.float32)
-        max_cs = max(self.cluster_size_candidates)
-        cluster_norm = cluster_sizes / float(max_cs)
-        delay_norm = np.array([self._segment_avg_delay / self.max_delay], dtype=np.float32)
-        obs = np.concatenate([beta_norm, cluster_norm, delay_norm], axis=0)
+        cluster_norm = (self.last_cluster_size / 10.0).reshape(self.M_sim, 1).astype(np.float32)
+        delay_norm = (self._segment_avg_delay / self.max_delay).reshape(self.M_sim, 1)
+        uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
+        front_norm = (self._segment_avg_front / self.max_delay).reshape(self.M_sim, 1)
+        pos_norm = (self.locations_users[:self.M_sim, :2] / 900.0).astype(np.float32)
+        max_speed = 20 * self.tau_c
+        speed_norm = (self.user_speed[:self.M_sim, 0] / max_speed).reshape(self.M_sim, 1).astype(np.float32)
+        obs = np.concatenate(
+            [
+                beta_norm,
+                cluster_norm,
+                delay_norm,
+                uplink_norm,
+                front_norm,
+                pos_norm,
+                speed_norm,
+                front_stats,
+            ],
+            axis=1,
+        )
         return obs
     
     def cluster(self):
@@ -399,10 +425,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             sorted_idx = np.argsort(self.beta[i, :self.N_sim])[::-1]
             
             # 2. [修改] 截取前 K 個，這裡的 K 變成動態變數
-            if self.current_cluster_sizes is None:
-                size_i = int(self.current_cluster_size)
-            else:
-                size_i = int(self.current_cluster_sizes[i])
+            size_i = int(self.current_cluster_size[i])
             chosen = sorted_idx[:size_i]
             
             # 3. 填入矩陣 (跟原本一樣)
@@ -561,6 +584,13 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self._channel_ready = False
         self.theta_current = None
         self._pending_high_action = None
+        self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_delay_count = 0
+        self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_front = np.zeros((self.M_sim,), dtype=np.float32)
         '''
         self.Task_size = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
         #self.Task_size = self.rng.uniform(50000, 100000, [1, self.M])
@@ -577,7 +607,9 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             self.Task_density[0, i],
             0,
             0,
-            0])
+            0,
+            self.current_cluster_size[i]
+            ])
             norm_obs = raw_obs / self.norm_factor #正規化
             sub_agent_obs.append(norm_obs)
             
@@ -649,6 +681,9 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                     front_delay[i, 0] = np.max(delays)
                 else:
                     front_delay[i, 0] = 0.0
+
+        # store front delay for evaluation
+        self.front_delay_last = front_delay
 
         # processing delay calculation
         # solve convex problem according to Eq. (24)
@@ -725,14 +760,21 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         for i in range(self.M_sim):
             total_delay[i, 0] = np.maximum(local_delay[i, 0],
                                            front_delay[i, 0] + uplink_delay[i, 0] + actual_process_delay[i, 0])
-        max_delay = 2.0  # 超過 2 秒視為「同樣很爛」，避免 reward 爆
+        max_delay = 1.0  # 超過 1 秒視為「同樣很爛」，避免 reward 爆
         total_delay = np.minimum(total_delay, max_delay)
 
-        # update segment average delay for high-level observation
-        segment_delay = float(np.mean(total_delay))
-        self._segment_delay_sum += segment_delay
+        # update per-user segment averages for high-level observation
+        segment_delay = total_delay[:self.M_sim, 0]
+        segment_uplink = uplink_delay[:self.M_sim, 0]
+        segment_front = front_delay[:self.M_sim, 0]
+        self._segment_delay_sum += segment_delay.astype(np.float32)
+        self._segment_uplink_sum += segment_uplink.astype(np.float32)
+        self._segment_front_sum += segment_front.astype(np.float32)
         self._segment_delay_count += 1
-        self._segment_avg_delay = self._segment_delay_sum / max(1, self._segment_delay_count)
+        count = max(1, self._segment_delay_count)
+        self._segment_avg_delay = self._segment_delay_sum / count
+        self._segment_avg_uplink = self._segment_uplink_sum / count
+        self._segment_avg_front = self._segment_front_sum / count
 
         
         if self.step_num >= 200:    #>20改>=200
@@ -767,10 +809,27 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             avg_front_delay_ms = 0.0
             avg_actual_process_delay_ms = 0.0
             avg_uplink_rate_Mbps = 0.0
-        # High-level reward source: offloading mean (uplink/front) + all-user mean (total).
-        self.high_reward_step = -(avg_total_delay_ms / 1000.0)
         
-
+        # High-level reward: total delay + deadline exceed penalty.
+        exceed = np.maximum(total_delay - self.tau_c, 0.0)
+        deadline_penalty = float(np.mean(exceed))
+        self.high_reward_step = -(
+            avg_total_delay_ms / 1000.0
+            + deadline_penalty
+        )
+        '''
+         # High-level reward: deadline satisfaction ratio minus mean of top-2 delays.
+        delays = total_delay[:self.M_sim, 0]
+        satisfy_ratio = float(np.mean(delays <= self.tau_c))
+        if delays.size >= 2:
+            top2 = np.partition(delays, -2)[-2:]
+            top2_mean = float(np.mean(top2))
+        else:
+            top2_mean = float(np.max(delays))
+        #only exceed 0.1
+        tail_excess = max(top2_mean - self.tau_c, 0.0)
+        self.high_reward_step = satisfy_ratio - tail_excess
+        '''
         # 保留原本每 200 step print 的 debug（用上面已經算好的統計量）
         if self.step_num % 200 == 0:
             print("Step Index:", self.step_num)
@@ -787,11 +846,11 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                 print("Average Actual Process Delay (ms):", avg_actual_process_delay_ms)
                 print("Average Uplink Rate (Mbps):", avg_uplink_rate_Mbps)
                 print("Offloading user", active)
-                print("cluster size", self.current_cluster_sizes)
+                print("cluster size", self.current_cluster_size)
             else:
                 print("No Offloading Users")
 
-        # task parameter   
+        # task parameter
         '''
         #Task_size_next = self.rng.uniform(50000, 100000, [1, self.M])  # task size in bit
         Task_size_next = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
@@ -828,7 +887,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             self.Task_density[0, i],
             self.omega_last[i],
             self.p_last[i],
-            self.delay_last[i, 0]
+            self.delay_last[i, 0],
+            self.current_cluster_size[i]
             ])
             norm_obs = raw_obs / self.norm_factor #試試沒正規化
             sub_agent_obs.append(norm_obs)

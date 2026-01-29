@@ -227,6 +227,12 @@ def get_config():
     # Reason: keep hierarchical toggle here, env semantics still live in env code.
     parser.add_argument("--use_hierarchical", action="store_true", default=False)
     parser.add_argument("--hierarchical_interval", type=int, default=10)
+    parser.add_argument(
+        "--use_high_peruser",
+        action="store_true",
+        default=False,
+        help="enable per-user high-level actor with shared scalar critic",
+    )
 
     # replay buffer parameters
     parser.add_argument("--episode_length", type=int, default=200, help="Max length for any episode")
@@ -264,6 +270,7 @@ def get_config():
     )
     # Reason: high-level has its own config; defaults match low-level to avoid behavior change.
     parser.add_argument("--high_hidden_size", type=int, default=64, help="high-level hidden size")
+    parser.add_argument("--high_num_heads", type=int, default=4, help="high-level attention heads")
     parser.add_argument(
         "--layer_N",
         type=int,
@@ -511,5 +518,9 @@ def get_config():
         default=None,
         help="by default None. set the path to pretrained model.",
     )
+    parser.add_argument("--low_model_dir", type=str, default=None, help="path to low-level pretrained model")
+    parser.add_argument("--high_model_dir", type=str, default=None, help="path to high-level pretrained model")
+    parser.add_argument("--freeze_low", action="store_true", default=False, help="freeze low-level policy")
+    parser.add_argument("--freeze_high", action="store_true", default=False, help="freeze high-level policy")
 
     return parser
