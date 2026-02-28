@@ -24,8 +24,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
         self.cluster_matrix = None
 
         #加速h計算
-        self.h_real = np.empty((self.M, self.N, self.varsig), dtype=np.float64)
-        self.h_imag = np.empty_like(self.h_real)
+        # self.h_real = np.empty((self.M, self.N, self.varsig), dtype=np.float64)
+        # self.h_imag = np.empty_like(self.h_real)
         self.rng = np.random.default_rng(seed)
 
         # locations of users and APs
@@ -111,7 +111,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
         # fronthaul channel parameter
         # fronthaul channel
         # front_chan = np.zeros([N, K])
-        self.bandwidth_f = 1e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
+        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
         self.epsilon = 6e-4  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
@@ -181,6 +181,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
         # a in {0,1,2,3,4}, p in {0, 1, 2, 3, 4} (totally 5 levels (p+1)/5*100 mW)
         self.omega_last = np.zeros([self.M_sim])
         self.p_last = np.zeros([self.M_sim])
+        self.p_idx_last = np.zeros([self.M_sim], dtype=np.int32)
         self.delay_last = np.zeros([self.M_sim, 1])
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(10)] * self.n_agents))
         # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
@@ -339,13 +340,13 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
 
         self.beta = np.power(10, self.PL / 10.0) * np.power(10, (self.sigma_s * self.mu) / 10.0)
 
-        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_real)
-        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_imag)
-        self.h_real *= 0.5
-        self.h_imag *= 0.5
-        self.h = self.h_real + 1j * self.h_imag
-
-        self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
+        # self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_real)
+        # self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_imag)
+        # self.h_real *= 0.5
+        # self.h_imag *= 0.5
+        # self.h = self.h_real + 1j * self.h_imag
+        #
+        # self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
         self.theta_current = (self.tau_p * self.P_max * (self.beta ** 2)) / (
             self.tau_p * self.P_max * self.beta + self.noise_access
         )
@@ -597,7 +598,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
             0])
             norm_obs = raw_obs / self.norm_factor #正規化
             sub_agent_obs.append(norm_obs)
-            
+
         return sub_agent_obs
 
     def step_low(self, action):
@@ -617,14 +618,16 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
         omega_current = np.zeros([self.M_sim])
         p_current = np.zeros([self.M_sim])
         p_level = self.P_max / 4
-        
-        
+
+        p_current_idx_record = np.zeros([self.M_sim], dtype=np.int32)
+
         for i in range(self.M_sim):
-            
+
             omega_current[i], p_current_idx = self.action_mapping(action[i])
-            # --- [修正：確保數據一致性] ---
+            p_current_idx_record[i] = p_current_idx
+            # Ensure correct power mapping.
             if omega_current[i] == 0:
-                p_current[i] = 0.0  # 讓 Agent 明確看到 "0"
+                p_current[i] = 0.0  # Ensure local action uses zero power.
             else:
                 p_current[i] = (p_current_idx + 1) * p_level
         # print("Chosen CPU ID:", omega_current)
@@ -844,6 +847,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
         self.delay_last = total_delay
         self.omega_last = omega_current
         self.p_last = p_current
+        self.p_idx_last = np.asarray(p_current_idx_record, dtype=np.int32)
         metrics_info = {
             "avg_total_delay_ms": avg_total_delay_ms,
             "avg_local_delay_ms": avg_local_delay_ms,
@@ -861,7 +865,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_alluser(object):
             self.p_last[i],
             self.delay_last[i, 0]
             ])
-            norm_obs = raw_obs / self.norm_factor #試試沒正規化
+            norm_obs = raw_obs / self.norm_factor # normalize
             sub_agent_obs.append(norm_obs)
 
             sub_agent_reward.append(reward[i])

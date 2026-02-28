@@ -37,10 +37,10 @@ class HighReplayBuffer(object):
         self.returns = np.zeros_like(self.value_preds)
 
         self.actions = np.zeros(
-            (self.episode_length, self.n_rollout_threads, obs_shape[0]), dtype=np.int64
+            (self.episode_length, self.n_rollout_threads, obs_shape[0], 10), dtype=np.int64
         )
         self.action_log_probs = np.zeros(
-            (self.episode_length, self.n_rollout_threads, obs_shape[0]), dtype=np.float32
+            (self.episode_length, self.n_rollout_threads, obs_shape[0], 1), dtype=np.float32
         )
         self.rewards = np.zeros(
             (self.episode_length, self.n_rollout_threads, 1, 1), dtype=np.float32
@@ -159,7 +159,7 @@ class HighReplayBuffer(object):
                     )
 
     def feed_forward_generator(self, advantages, num_mini_batch=None, mini_batch_size=None):
-        episode_length, n_rollout_threads, num_users = self.actions.shape
+        episode_length, n_rollout_threads, num_users, action_dim = self.actions.shape
         batch_size = n_rollout_threads * episode_length
 
         if mini_batch_size is None:
@@ -180,13 +180,14 @@ class HighReplayBuffer(object):
         obs = self.obs[:-1].reshape(batch_size, *self.obs.shape[2:])
         rnn_states = self.rnn_states[:-1].reshape(batch_size, *self.rnn_states.shape[3:])
         rnn_states_critic = self.rnn_states_critic[:-1].reshape(batch_size, *self.rnn_states_critic.shape[3:])
-        actions = self.actions.reshape(batch_size, num_users)
+        actions = self.actions.reshape(batch_size, num_users, action_dim)
         value_preds = self.value_preds[:-1].reshape(batch_size, 1)
         returns = self.returns[:-1].reshape(batch_size, 1)
         masks = self.masks[:-1].reshape(batch_size, 1)
         active_masks = self.active_masks[:-1].reshape(batch_size, 1)
-        action_log_probs = self.action_log_probs.reshape(batch_size, num_users)
+        action_log_probs = self.action_log_probs.reshape(batch_size, num_users, 1)
         advantages = advantages.reshape(batch_size, 1)
+        advantages_user = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
 
         for indices in sampler:
             share_obs_batch = share_obs[indices]
@@ -199,7 +200,7 @@ class HighReplayBuffer(object):
             masks_batch = masks[indices]
             active_masks_batch = active_masks[indices]
             old_action_log_probs_batch = action_log_probs[indices]
-            adv_targ = advantages[indices]
+            adv_targ = advantages_user[indices]
 
             yield (
                 share_obs_batch,
@@ -217,7 +218,7 @@ class HighReplayBuffer(object):
             )
 
     def recurrent_generator(self, advantages, num_mini_batch, data_chunk_length):
-        episode_length, n_rollout_threads, num_users = self.actions.shape
+        episode_length, n_rollout_threads, num_users, action_dim = self.actions.shape
         batch_size = n_rollout_threads * episode_length
         data_chunks = batch_size // data_chunk_length
         mini_batch_size = data_chunks // num_mini_batch
@@ -229,13 +230,16 @@ class HighReplayBuffer(object):
 
         share_obs = self.share_obs[:-1].transpose(1, 0, 2, 3).reshape(batch_size, *self.share_obs.shape[2:])
         obs = self.obs[:-1].transpose(1, 0, 2, 3).reshape(batch_size, *self.obs.shape[2:])
-        actions = self.actions.transpose(1, 0, 2).reshape(batch_size, num_users)
-        action_log_probs = self.action_log_probs.transpose(1, 0, 2).reshape(batch_size, num_users)
+        actions = self.actions.transpose(1, 0, 2, 3).reshape(batch_size, num_users, action_dim)
+        action_log_probs = self.action_log_probs.transpose(1, 0, 2, 3).reshape(
+            batch_size, num_users, 1
+        )
         value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
         returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
         masks = self.masks[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
         active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
         advantages = advantages.transpose(1, 0, 2, 3).reshape(batch_size, 1)
+        advantages_user = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
         rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(batch_size, 1, self.recurrent_N, self.hidden_size)
         rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 0, 2, 3, 4).reshape(
             batch_size, 1, self.recurrent_N, self.hidden_size
@@ -264,7 +268,7 @@ class HighReplayBuffer(object):
                 masks_batch.append(masks[ind : ind + data_chunk_length])
                 active_masks_batch.append(active_masks[ind : ind + data_chunk_length])
                 old_action_log_probs_batch.append(action_log_probs[ind : ind + data_chunk_length])
-                adv_targ.append(advantages[ind : ind + data_chunk_length])
+                adv_targ.append(advantages_user[ind : ind + data_chunk_length])
                 rnn_states_batch.append(rnn_states[ind])
                 rnn_states_critic_batch.append(rnn_states_critic[ind])
 
@@ -308,7 +312,7 @@ class HighReplayBuffer(object):
             )
 
     def naive_recurrent_generator(self, advantages, num_mini_batch):
-        episode_length, n_rollout_threads, num_users = self.actions.shape
+        episode_length, n_rollout_threads, num_users, action_dim = self.actions.shape
         batch_size = n_rollout_threads
         assert batch_size >= num_mini_batch, (
             "PPO requires the number of processes ({}) "
@@ -320,13 +324,16 @@ class HighReplayBuffer(object):
 
         share_obs = self.share_obs[:-1].transpose(1, 0, 2, 3)
         obs = self.obs[:-1].transpose(1, 0, 2, 3)
-        actions = self.actions.transpose(1, 0, 2)
-        action_log_probs = self.action_log_probs.transpose(1, 0, 2)
+        actions = self.actions.transpose(1, 0, 2, 3)
+        action_log_probs = self.action_log_probs.transpose(1, 0, 2, 3)
         value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
         returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
         masks = self.masks[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
         active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
         advantages = advantages.transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
+        advantages_user = np.broadcast_to(
+            advantages[:, :, None, :], (n_rollout_threads, self.episode_length, num_users, 1)
+        )
 
         for start_ind in range(0, batch_size, num_envs_per_batch):
             share_obs_batch = []
@@ -351,7 +358,7 @@ class HighReplayBuffer(object):
                 masks_batch.append(masks[ind])
                 active_masks_batch.append(active_masks[ind])
                 old_action_log_probs_batch.append(action_log_probs[ind])
-                adv_targ.append(advantages[ind])
+                adv_targ.append(advantages_user[ind])
                 rnn_states_batch.append(self.rnn_states[0:1, ind])
                 rnn_states_critic_batch.append(self.rnn_states_critic[0:1, ind])
 

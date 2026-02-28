@@ -56,7 +56,7 @@ class MA_UCMEC_stat_noncoop(object):
         self.Task_size = np.random.uniform(50000, 100000, [1, self.M])  # task size in bit
         self.Task_density = np.random.uniform(500, 1000, [1, self.M])  # task density cpu cycles per bit
         # Task_max_delay = np.random.uniform(2, 5, [1, M])  # task max delay in second
-        self.cluster_size = 5 # AP cluster size
+        self.cluster_size = 1 # AP cluster size
 
         # edge server parameter
         self.C_edge = np.random.uniform(10e9, 20e9, [self.K, 1])  # computing resource of edge server in CPU
@@ -527,16 +527,19 @@ class MA_UCMEC_stat_noncoop(object):
         return [sub_agent_obs, sub_agent_reward, sub_agent_done, sub_agent_info]
 
 
-# if __name__ == "__main__":
-#     env = MA_UCMEC_Static(render=False)
-#     # check_env(env)
-#     obs = env.reset()
-#     n_steps = 50
-#     for _ in range(n_steps):
-#         # Random action
-#         action = env.action_space.sample()
-#         obs, reward, done, info = env.step(action)
-#         if np.all(done):
-#             obs = env.reset()
-#         # print(f"state: {obs} \n")
-#         print(f"action : {action}, reward : {reward}")
+if __name__ == "__main__":
+    env = MA_UCMEC_stat_noncoop(render=False)
+    # check_env(env)
+    obs = env.reset()
+    n_steps = 50
+    for _ in range(n_steps):
+        # Random action
+        #action = env.action_space.sample()
+        action_idx = env.action_space.sample()
+        action_idx = np.array(action_idx, dtype=int)
+        action_onehot = np.eye(env.action_space[0].n, dtype=np.float32)[action_idx]
+        obs, reward, done, info = env.step(action_onehot)
+        if np.all(done):
+            obs = env.reset()
+            #print(f"state: {obs} \n")
+        print(f"action : {action_idx}, reward : {reward}")

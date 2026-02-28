@@ -74,7 +74,10 @@ class EnvRunner(Runner):
                     )
                     action_h = _t2n(action_h)
                     if self.use_high_peruser:
-                        if getattr(self.high_action_space, "__class__", None).__name__ == "MultiDiscrete":
+                        space_name = getattr(self.high_action_space, "__class__", None).__name__
+                        if space_name == "MultiDiscrete":
+                            action_id = action_h.astype(int)
+                        elif space_name == "MultiBinary":
                             action_id = action_h.astype(int)
                         else:
                             action_id = action_h.squeeze(-1).astype(int)
@@ -156,13 +159,22 @@ class EnvRunner(Runner):
                             step_reward = np.array([[float(self.envs.high_reward_step)]], dtype=np.float32)
                     if step_reward is None:
                         step_reward = np.mean(rewards, axis=1)
-                    self._high_reward_acc += step_reward
-                    self._high_reward_count += 1
                     interval_end = (step % self.hierarchical_interval) == (self.hierarchical_interval - 1)
                     episode_end = step == (self.episode_length - 1)
                     if interval_end or episode_end:
-                        avg_reward = self._high_reward_acc / max(1, self._high_reward_count)
-                        #sum_reward = self._high_reward_acc
+                        if self.use_high_peruser and hasattr(self.envs, "envs"):
+                            for t, env in enumerate(self.envs.envs):
+                                src = env.env if hasattr(env, "env") else env
+                                if hasattr(src, "compute_interval_reward"):
+                                    step_reward[t, 0] = float(src.compute_interval_reward())
+                        elif hasattr(self.envs, "compute_interval_reward"):
+                            step_reward = np.array(
+                                [[float(self.envs.compute_interval_reward())]], dtype=np.float32
+                            )
+                    self._high_reward_acc += step_reward
+                    self._high_reward_count += 1
+                    if interval_end or episode_end:
+                        sum_reward = self._high_reward_acc
                         masks_h = np.ones((self.n_rollout_threads, 1, 1), dtype=np.float32)
                         masks_h[dones.all(axis=1)] = 0.0
                         t = self._high_transition
@@ -175,7 +187,7 @@ class EnvRunner(Runner):
                                 t["action_h"],
                                 t["logp_h"],
                                 t["value_h"][:, None, :],
-                                avg_reward.reshape(self.n_rollout_threads, 1, 1),
+                                sum_reward.reshape(self.n_rollout_threads, 1, 1),
                                 masks_h,
                             )
                         else:
@@ -186,7 +198,7 @@ class EnvRunner(Runner):
                                 # Reason: store model output directly; no runner-side mapping.
                                 t["action_h"][:, None, :], t["logp_h"][:, None, :],
                                 t["value_h"][:, None, :],
-                                avg_reward[:, None, :],
+                                sum_reward[:, None, :],
                                 masks_h
                             )
                         self._high_pending = False
@@ -197,6 +209,7 @@ class EnvRunner(Runner):
             # compute return and update network
             self.compute()
             train_infos = self.train()
+            train_infos_high = {}
 
             #對高層 PPO 做 GAE / 更新
             if self.use_hierarchical and not self.freeze_high:
@@ -277,6 +290,9 @@ class EnvRunner(Runner):
                 if self.use_hierarchical and high_reward_list is not None:
                     train_infos["average_episode_rewards_high"] = float(high_reward_list[episode, 0])
                     print("average high-level rewards is {}".format(train_infos["average_episode_rewards_high"]))
+                if self.use_hierarchical and train_infos_high:
+                    for k, v in train_infos_high.items():
+                        train_infos[f"high/{k}"] = v
                 self.log_train(train_infos, total_num_steps)
                 reward_list[episode, 0] = np.mean(self.buffer.rewards)
                 # self.log_env(env_infos, total_num_steps)

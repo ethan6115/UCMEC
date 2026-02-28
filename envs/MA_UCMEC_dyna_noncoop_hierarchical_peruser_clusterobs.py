@@ -3,10 +3,9 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 import math
-# from stable_baselines3.common.env_checker import check_env
 import cvxpy as cp
 
-class MA_UCMEC_dyna_noncoop(object):
+class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
     def __init__(self, render: bool = False, seed=None):
         
         # Initialization
@@ -17,12 +16,15 @@ class MA_UCMEC_dyna_noncoop(object):
         self.varsig = 16  # number of antennas of each AP
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
-        self.M_sim = 20  # number of users for simulation
+        self.M_sim = 10  # number of users for simulation
         self.N_sim = 50  # number of APs for simulation 50
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
 
+        #加速h計算
+        # self.h_real = np.empty((self.M, self.N, self.varsig), dtype=np.float64)
+        # self.h_imag = np.empty_like(self.h_real)
         self.rng = np.random.default_rng(seed)
 
         # locations of users and APs
@@ -62,10 +64,10 @@ class MA_UCMEC_dyna_noncoop(object):
         # user parameter
         #self.C_user = self.rng.uniform(2e8, 5e8, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(2e9, 5e9, [1, self.M])  # computing resource of users  in Hz
-        self.cluster_size = 1
+        self.current_cluster_size = np.full(self.M_sim, 5, dtype=np.int32)
 
         # edge server parameter
-        self.C_edge = self.rng.uniform(30e9, 50e9, [self.K, 1])  # computing resource of edge server in CPU  20e9, 40e9
+        self.C_edge = self.rng.uniform(20e9, 40e9, [self.K, 1])  # computing resource of edge server in CPU #由10~20增加五倍
 
         # access channel parameter
         self.tau_c = 0.1  # coherence time = 100ms
@@ -104,33 +106,20 @@ class MA_UCMEC_dyna_noncoop(object):
         if np.any(near_mask):   #3. d < d0
             term = (self.d_1 / 1000.0) ** 1.5 * (self.d_0 / 1000.0) ** 2
             self.PL[near_mask] = -self.L - 10 * np.log10(term)
-        '''舊版
-        for i in range(self.M):
-            for j in range(self.N):
-                # three slope path-loss model
-                if self.distance_matrix[i, j] > self.d_1:
-                    self.PL[i, j] = -self.L - 35 * np.log10(self.distance_matrix[i, j] / 1000)
-                elif self.d_0 <= self.distance_matrix[i, j] <= self.d_1:
-                    self.PL[i, j] = -self.L - 10 * np.log10(
-                        (self.d_1 / 1000) ** 1.5 * (self.distance_matrix[i, j] / 1000) ** 2)
-                else:
-                    self.PL[i, j] = -self.L - 10 * np.log10((self.d_1 / 1000) ** 1.5 * (self.d_0 / 1000) ** 2)
-        '''
-
+        
         # fronthaul channel parameter
         # fronthaul channel
         # front_chan = np.zeros([N, K])
-        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  2e9
+        self.bandwidth_f = 1e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
         self.epsilon = 6e-4  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
         self.psi_los = 3  # Nakagami fading parameter for LOS links
         self.psi_nlos = 2  # Nakagami fading parameter for NLOS links
-        self.noise_front = 1.380649 * 1e-23 * 290 * 9 * self.bandwidth_f  # fronthaul channel noise variance #原始code有錯，大了10倍 
+        self.noise_front = 1.380649 * 1e-23 * 290 * 9 * self.bandwidth_f  # fronthaul channel noise variance
         self.G = np.zeros([self.N, self.K])  # random antenna gain
-        self.fai = math.pi / 6  # Main lobe beamwidth 原為math.pi / 6
-        #根據論文改10跟0.1(10和-10db)試試，原為self.Gm = 63.1 self.Gs = 0.631
+        self.fai = math.pi / 6  # Main lobe beamwidth
         self.Gm = 63.1  # Directivity gain of main lobes
         self.Gs = 0.631  # Directivity gain of side lobes
         self.Gain = np.array(
@@ -141,7 +130,7 @@ class MA_UCMEC_dyna_noncoop(object):
 
         self.P_los = np.zeros([self.N, self.K])  # probability of LOS links
         self.link_type = np.zeros([self.N, self.K])  # type of fronthaul links
-        '''改為每episode重抽一次，而非固定
+        '''
         for i in range(self.N):
             for j in range(self.K):
                 self.P_los[i, j] = np.exp(-self.epsilon * self.distance_matrix_front[i, j])
@@ -163,9 +152,33 @@ class MA_UCMEC_dyna_noncoop(object):
         # parameter init
         self.n_agents = self.M_sim
         self.agent_num = self.n_agents
-        self.obs_dim = 5  # set the observation dimension of agents
+        self.obs_dim = 6  # set the observation dimension of agents
+        #self.obs_dim = 5  
         self.action_dim = 10
         self._render = render
+
+        # High-level observation: top-10 beta per agent + last cluster size + per-user delay/uplink/front + position/speed.
+        self.max_delay = 1.0
+        self.cluster_size_candidates = list(range(1, 11))
+        self.high_action_space = spaces.MultiDiscrete(
+            np.array([len(self.cluster_size_candidates)] * self.M_sim)
+        )
+        self.high_action_dim = len(self.cluster_size_candidates)
+        self.high_obs_dim = 26
+        self.high_observation_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(self.M_sim, self.high_obs_dim), dtype=np.float32
+        )
+        self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_delay_count = 0
+        self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_front = np.zeros((self.M_sim,), dtype=np.float32)
+        self._pending_high_action = None #記住高層動作
+        self._channel_ready = False
+        self.theta_current = None
+        self.last_cluster_size = self.current_cluster_size.copy()
         # action space: [omega_1,omega_2,...,omega_K,p]  K+1 continuous vector for each agent
         # a in {0,1,2,3,4}, p in {0, 1, 2, 3, 4} (totally 5 levels (p+1)/5*100 mW)
         self.omega_last = np.zeros([self.M_sim])
@@ -175,7 +188,8 @@ class MA_UCMEC_dyna_noncoop(object):
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(10)] * self.n_agents))
         # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
         # r in [0, 10e8]
-        self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 2.0])   #對obs做正規化用的，根據論文修改100000改為819200
+        #self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 1.0])  
+        self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 1.0, 10.0])   #對obs做正規化用的，根據論文修改100000改為819200
         self.obs_low = np.zeros(self.obs_dim)  # [0, 0, 0, 0, 0]
         self.obs_high = np.ones(self.obs_dim)  # [1, 1, 1, 1, 1]
         # obs = {task data size, task computing density, action index, total delay of last time slot}
@@ -184,7 +198,7 @@ class MA_UCMEC_dyna_noncoop(object):
                         dtype=np.float32)] * self.n_agents))
         # self.np_random = None
         self.uplink_rate_access_b = np.zeros([self.M_sim, 1])
-        self.step_num = 0
+        self.step_num = 0 
         
         #預先定義求解器問題
         self.opt_probs = []
@@ -257,19 +271,168 @@ class MA_UCMEC_dyna_noncoop(object):
             p_agent = 3
         return omega_agent, p_agent
     
-    def cluster(self):  #改
-        cluster_matrix = np.zeros([self.M_sim, self.N_sim], dtype=int)
-        ap_index_list = np.zeros([self.M_sim, self.cluster_size], dtype=int)
+    # [新增] 上層控制接口
+    def set_high_action(self, action_id):
+        # Reason: accept per-user indices (or one-hot) without runner-side semantics.
+        if isinstance(action_id, (list, np.ndarray)):
+            action_id = np.asarray(action_id)
+            if action_id.ndim == 2:
+                action_id = np.argmax(action_id, axis=1)
+        else:
+            action_id = np.full(self.M_sim, int(action_id))
+        action_id = np.clip(action_id.astype(np.int32), 0, len(self.cluster_size_candidates) - 1)
+        self._pending_high_action = action_id
 
+    def apply_high_action(self, action_id=None):
+        if action_id is None:
+            if self._pending_high_action is None:
+                return
+            action_id = self._pending_high_action
+        action_id = np.asarray(action_id, dtype=np.int32)
+        if action_id.ndim == 0:
+            action_id = np.full(self.M_sim, int(action_id))
+        action_id = np.clip(action_id, 0, len(self.cluster_size_candidates) - 1)
+        self.current_cluster_size = np.array(
+            [self.cluster_size_candidates[int(idx)] for idx in action_id], dtype=np.int32
+        )
+        self.last_cluster_size = self.current_cluster_size.copy()
+        self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_delay_count = 0
+        self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_front = np.zeros((self.M_sim,), dtype=np.float32)
+        self.cluster_matrix = self.cluster()
+        self._pending_high_action = None
+
+    def advance_channel(self):
+        # Update positions, pathloss, and channel for the current slot.
+        if self.is_mobile:
+            max_speed = 20 * self.tau_c
+            min_speed = 10 * self.tau_c
+            for i in range(self.M):
+                dx = self.user_dest[i, 0] - self.locations_users[i, 0]
+                dy = self.user_dest[i, 1] - self.locations_users[i, 1]
+                dist = math.sqrt(dx * dx + dy * dy)
+                step_dist = self.user_speed[i, 0]
+                if dist <= 1e-6:
+                    self.user_dest[i, :] = self.rng.random(2) * 900
+                    self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
+                    continue
+                if step_dist >= dist:
+                    self.locations_users[i, 0] = self.user_dest[i, 0]
+                    self.locations_users[i, 1] = self.user_dest[i, 1]
+                    self.user_dest[i, :] = self.rng.random(2) * 900
+                    self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
+                else:
+                    dir_x = dx / dist
+                    dir_y = dy / dist
+                    self.locations_users[i, 0] += dir_x * step_dist
+                    self.locations_users[i, 1] += dir_y * step_dist
+            self.locations_users = np.clip(self.locations_users, 0, 900)
+
+        diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
+        self.distance_matrix = np.sqrt(np.sum(diff**2, axis=2))
+
+        d_km = self.distance_matrix / 1000.0
+        PL = np.empty_like(self.distance_matrix)
+        far_mask = self.distance_matrix > self.d_1
+        mid_mask = (self.distance_matrix >= self.d_0) & (self.distance_matrix <= self.d_1)
+        near_mask = self.distance_matrix < self.d_0
+        if np.any(far_mask):
+            self.PL[far_mask] = -self.L - 35 * np.log10(d_km[far_mask])
+        if np.any(mid_mask):
+            term = (self.d_1 / 1000.0) ** 1.5 * (d_km[mid_mask] ** 2)
+            self.PL[mid_mask] = -self.L - 10 * np.log10(term)
+        if np.any(near_mask):
+            term = (self.d_1 / 1000.0) ** 1.5 * (self.d_0 / 1000.0) ** 2
+            self.PL[near_mask] = -self.L - 10 * np.log10(term)
+
+        self.beta = np.power(10, self.PL / 10.0) * np.power(10, (self.sigma_s * self.mu) / 10.0)
+        '''沒有用到
+        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_real)
+        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_imag)
+        self.h_real *= 0.5
+        self.h_imag *= 0.5
+        self.h = self.h_real + 1j * self.h_imag
+        
+        self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
+        '''
+        self.theta_current = (self.tau_p * self.P_max * (self.beta ** 2)) / (
+            self.tau_p * self.P_max * self.beta + self.noise_access
+        )
+        self._channel_ready = True
+        return self.get_global_obs()
+        
+
+    # [新增] 全域觀測接口
+    def get_global_obs(self):
+        beta_top10 = []
+        front_stats = np.zeros((self.M_sim, 9), dtype=np.float32)
         for i in range(self.M_sim):
-            # 只對第 i 個 user 的前 N_sim 個 AP 做排序
-            # 注意：beta 的大小是 M x N (full)，我們要取前 N_sim
-            sorted_idx = np.argsort(self.beta[i, :self.N_sim])  # 小到大
-            sorted_idx = sorted_idx[::-1]                       # 反轉成大到小
-            chosen = sorted_idx[:self.cluster_size]             # 取前 cluster_size 個 AP index
-            ap_index_list[i, :] = chosen
+            beta_row = self.beta[i, :self.N_sim]
+            top_idx = np.argsort(beta_row)[::-1][:10]
+            beta_top10.append(beta_row[top_idx])
+            ap_idx = top_idx
+            for cpu in range(self.K):
+                dist_km = self.distance_matrix_front[ap_idx, cpu] / 1000.0
+                dist_km = np.maximum(dist_km, 1e-6)
+                alpha = np.where(self.link_type[ap_idx, cpu] == 0, self.alpha_los, self.alpha_nlos)
+                pathloss = np.power(dist_km, -alpha)
+                pl_db = 10.0 * np.log10(pathloss + 1e-12)
+                pl_norm = pl_db / 40.0
+                stats = np.array(
+                    [
+                        float(np.mean(pl_norm)),
+                        float(np.min(pl_norm)),
+                        float(np.std(pl_norm)),
+                    ],
+                    dtype=np.float32,
+                )
+                start = cpu * 3
+                front_stats[i, start:start + 3] = stats
+        beta_top10 = np.array(beta_top10, dtype=np.float32)
+        #beta normalization
+        beta_db = 10.0 * np.log10(beta_top10 + 1e-12)
+        beta_db = np.clip(beta_db, -120.0, -80.0)
+        beta_norm = (beta_db + 120.0) / 40.0
+        cluster_norm = (self.last_cluster_size / 10.0).reshape(self.M_sim, 1).astype(np.float32)
+        delay_norm = (self._segment_avg_delay / self.max_delay).reshape(self.M_sim, 1)
+        uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
+        front_norm = (self._segment_avg_front / self.max_delay).reshape(self.M_sim, 1)
+        pos_norm = (self.locations_users[:self.M_sim, :2] / 900.0).astype(np.float32)
+        max_speed = 20 * self.tau_c
+        speed_norm = (self.user_speed[:self.M_sim, 0] / max_speed).reshape(self.M_sim, 1).astype(np.float32)
+        obs = np.concatenate(
+            [
+                beta_norm,
+                cluster_norm,
+                delay_norm,
+                uplink_norm,
+                front_norm,
+                pos_norm,
+                speed_norm,
+                front_stats,
+            ],
+            axis=1,
+        )
+        return obs
+    
+    def cluster(self):
+        cluster_matrix = np.zeros([self.M_sim, self.N_sim], dtype=int)
+        for i in range(self.M_sim):
+            # 1. 根據 beta 排序 (跟原本一樣)
+            sorted_idx = np.argsort(self.beta[i, :self.N_sim])[::-1]
+            
+            # 2. [修改] 截取前 K 個，這裡的 K 變成動態變數
+            size_i = int(self.current_cluster_size[i])
+            chosen = sorted_idx[:size_i]
+            
+            # 3. 填入矩陣 (跟原本一樣)
             for k_idx in chosen:
                 cluster_matrix[i, int(k_idx)] = 1
+                
         return cluster_matrix
 
     def uplink_rate_cal(self, p, omega, cluster_matrix, theta):  # calculate the uplink transmit rate in Eq. (12) 改成新版
@@ -331,35 +494,25 @@ class MA_UCMEC_dyna_noncoop(object):
                 for cpu_k in range(self.K):
                     G_int = self.G[ap, cpu_k]
                     if self.link_type[ap, cpu_k] == 0:  
-                        I_total[cpu_k] += self.p_ap * G_int * pow(self.distance_matrix_front[ap, cpu_k]  , -self.alpha_los)
+                        I_total[cpu_k] += self.p_ap * G_int * pow(self.distance_matrix_front[ap, cpu_k] / 1000 , -self.alpha_los)
                     else:
-                        I_total[cpu_k] += self.p_ap * G_int * pow(self.distance_matrix_front[ap, cpu_k]  , -self.alpha_nlos)
+                        I_total[cpu_k] += self.p_ap * G_int * pow(self.distance_matrix_front[ap, cpu_k] / 1000 , -self.alpha_nlos)
         #計算sinr
         G_sig = (self.Gm ** 2)
         for ap in range(self.N_sim):
             for cpu in range(self.K):
                 if chi[ap, cpu] == 1:
                     if self.link_type[ap, cpu] == 0:  # LOS link
-                        p1 = self.p_ap * pow(self.distance_matrix_front[ap, cpu] ,
+                        p1 = self.p_ap * pow(self.distance_matrix_front[ap, cpu] / 1000,
                                                                          -self.alpha_los)
                     else:
-                        p1 = self.p_ap * pow(self.distance_matrix_front[ap, cpu] ,
+                        p1 = self.p_ap * pow(self.distance_matrix_front[ap, cpu] / 1000,
                                                                          -self.alpha_nlos)  #改正為負號
                     SINR_front_mole = p1 * G_sig    #有用訊號功率
                     I_self = p1 * self.G[ap, cpu]
                     I = (I_total[cpu] - I_self) + self.noise_front
-                    
                     SINR_front[ap, cpu] = SINR_front_mole / I
                     front_rate[ap, cpu] = self.bandwidth_f * np.log2(1 + SINR_front[ap, cpu])
-                    '''
-                    if(front_rate[ap, cpu] < 400000):
-                        print('front_rate', front_rate[ap, cpu])
-                        print('分子', SINR_front_mole)
-                        print('干擾', (I_total[cpu] - I_self))
-                        print('noise_front', self.noise_front)
-                        print('距離', self.distance_matrix_front[ap,cpu])
-                        print('link_type', self.link_type[ap,cpu])
-                    '''
 
         for i in range(self.M_sim):
             if omega[i] == 0:
@@ -395,7 +548,6 @@ class MA_UCMEC_dyna_noncoop(object):
         else:
             self.user_dest = None
             self.user_speed = None
-
         #重算距離
         diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
         self.distance_matrix = np.sqrt(np.sum(diff**2, axis=2))
@@ -427,9 +579,19 @@ class MA_UCMEC_dyna_noncoop(object):
         kappa_1 = self.rng.standard_normal((1, self.N))
         kappa_2 = self.rng.standard_normal((self.M, 1))
         self.mu = np.sqrt(self.delta) * kappa_1 + np.sqrt(1 - self.delta) * kappa_2
-        
+
         # 回傳observation
         self.step_num = 0 
+        self._channel_ready = False
+        self.theta_current = None
+        self._pending_high_action = None
+        self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_delay_count = 0
+        self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
+        self._segment_avg_front = np.zeros((self.M_sim,), dtype=np.float32)
         '''
         self.Task_size = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
         #self.Task_size = self.rng.uniform(50000, 100000, [1, self.M])
@@ -438,7 +600,7 @@ class MA_UCMEC_dyna_noncoop(object):
         #調整task大小跟密度試試
         self.Task_size = self.rng.uniform(409600*5, 819200*5, [1, self.M])  # 單位從KB改成bits，根據論文修改
         self.Task_density = self.rng.uniform(100, 200, [1, self.M])
-
+        
         sub_agent_obs = []
         for i in range(self.agent_num):
             raw_obs = np.array([    #obs改為一次全部正規化
@@ -446,129 +608,26 @@ class MA_UCMEC_dyna_noncoop(object):
             self.Task_density[0, i],
             0,
             0,
-            0])
+            0,
+            self.current_cluster_size[i]
+            ])
             norm_obs = raw_obs / self.norm_factor #正規化
             sub_agent_obs.append(norm_obs)
 
         return sub_agent_obs
 
-    def step(self, action):
+    def step_low(self, action):
         self.step_num += 1
 
-        # mobility 改成正規RWP
-        if self.is_mobile:
-        # 根據論文修改速度 5–15 改成 10–20 m/s
-            max_speed = 20 * self.tau_c  # (m / tau_c second)
-            min_speed = 10 * self.tau_c  
+        if not self._channel_ready:
+            self.advance_channel()
 
-            # 正統 RWP：每個 user 往 waypoint 走，走到才換新 waypoint
-            for i in range(self.M):
-                # 目前 waypoint 與位置的位移向量
-                dx = self.user_dest[i, 0] - self.locations_users[i, 0]
-                dy = self.user_dest[i, 1] - self.locations_users[i, 1]
-                dist = math.sqrt(dx * dx + dy * dy)
+        theta = self.theta_current
 
-                # 該 user 本 step 可走的距離（速度單位 = m / tau_c，一個 step 就走這麼多）
-                step_dist = self.user_speed[i, 0]
-
-                if dist <= 1e-6:
-                    # 已經在 waypoint 上（或數值上非常接近）：直接抽新 waypoint + 速度，下一步再走
-                    self.user_dest[i, :] = self.rng.random(2) * 900
-                    self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
-                    continue
-
-                if step_dist >= dist:
-                    # 這一步就能走到 waypoint，直接拉到目的地
-                    self.locations_users[i, 0] = self.user_dest[i, 0]
-                    self.locations_users[i, 1] = self.user_dest[i, 1]
-
-                    # 抵達後，立刻為「下一個段落」抽新的 waypoint 和速度
-                    self.user_dest[i, :] = self.rng.random(2) * 900
-                    self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
-                else:
-                    # 還沒到 waypoint，沿著目前方向走 step_dist
-                    dir_x = dx / dist
-                    dir_y = dy / dist
-                    self.locations_users[i, 0] += dir_x * step_dist
-                    self.locations_users[i, 1] += dir_y * step_dist
-
-            # 把 user 位置拉回900內
-            self.locations_users = np.clip(self.locations_users, 0, 900)
-
-        # distance
-        diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
-        self.distance_matrix = np.sqrt(np.sum(diff**2, axis=2))
-        '''舊版
-        for i in range(self.M):
-            for j in range(self.N):
-                self.distance_matrix[i, j] = math.sqrt((self.locations_users[i, 0] - self.locations_aps[j, 0]) ** 2
-                                                       + (self.locations_users[i, 1] - self.locations_aps[j, 1]) ** 2)
-        '''
-        # pathloss
-        d_km = self.distance_matrix / 1000.0
-        PL = np.empty_like(self.distance_matrix)
-        # 建立布林遮罩
-        far_mask  = self.distance_matrix > self.d_1
-        mid_mask  = (self.distance_matrix >= self.d_0) & (self.distance_matrix <= self.d_1)
-        near_mask = self.distance_matrix < self.d_0
-
-        if np.any(far_mask):    #1. d > d1
-            self.PL[far_mask] = -self.L - 35 * np.log10(d_km[far_mask])
-        if np.any(mid_mask):    #2. d0 <= d <= d1
-            term = (self.d_1 / 1000.0) ** 1.5 * (d_km[mid_mask] ** 2)
-            self.PL[mid_mask] = -self.L - 10 * np.log10(term)
-        if np.any(near_mask):   #3. d < d0
-            term = (self.d_1 / 1000.0) ** 1.5 * (self.d_0 / 1000.0) ** 2
-            self.PL[near_mask] = -self.L - 10 * np.log10(term)
-        
-
-        '''
-        # 1. 生成隨機參數 (一次生成整個矩陣，取代迴圈內生成)
-        kappa_1 = self.rng.standard_normal((1, self.N))  # 形狀: (1, N)    從rand改成randn，才符合論文的公式
-        kappa_2 = self.rng.standard_normal((self.M, 1))  # 形狀: (M, 1)，轉置以便廣播  從rand改成randn，才符合論文的公式
-
-        # 2. 計算 Shadow Fading (mu) - 利用 Broadcasting
-        # (1, N) 與 (M, 1) 運算會自動廣播成 (M, N) 矩陣
-        self.mu = np.sqrt(self.delta) * kappa_1 + np.sqrt(1 - self.delta) * kappa_2
-        '''
-        # 3. 計算 Large Scale Fading (beta) - 矩陣直接運算
-        # self.PL 和 self.mu 都是 (M, N) 矩陣，直接進行元素級運算
-        self.beta = np.power(10, self.PL / 10.0) * np.power(10, (self.sigma_s * self.mu) / 10.0)
-
-        '''
-        # 4. 計算 Small Scale Fading (h) - 一次生成所有亂數
-        # 形狀: (M, N, varsig)
-        #self.h_real = self.rng.normal(loc=0, scale=0.5, size=(self.M, self.N, self.varsig))
-        #self.h_imag = self.rng.normal(loc=0, scale=0.5, size=(self.M, self.N, self.varsig))
-        #加速h計算
-        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_real)
-        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_imag)
-        self.h_real *= 0.5
-        self.h_imag *= 0.5
-
-        self.h = self.h_real + 1j * self.h_imag
-
-        # 5. 計算 Access Channel - 利用 Broadcasting
-        # self.beta 形狀是 (M, N)，需要擴展維度變成 (M, N, 1) 才能跟 (M, N, varsig) 的 h 相乘
-        self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
-        '''
-        # MMSE channel estimation(一樣改為numpy版本)
-        '''
-        theta = np.zeros([self.M, self.N])
-        for i in range(self.M):
-            for j in range(self.N):
-                theta[i, j] = self.tau_p * self.P_max * (self.beta[i, j] ** 2) / (
-                        self.tau_p * self.P_max * self.beta[i, j] + self.noise_access)
-        '''
-        theta = (self.tau_p * self.P_max * (self.beta ** 2)) / (self.tau_p * self.P_max * self.beta + self.noise_access)
-        
-        
-        # 根據論文將cluster改為每10個time slot做一次
-        if self.step_num == 1 or self.step_num % 10 == 0:
+        if self._pending_high_action is not None:
+            self.apply_high_action()
+        elif self.cluster_matrix is None:
             self.cluster_matrix = self.cluster()
-        cluster_matrix = self.cluster_matrix
-        
-        #cluster_matrix = self.cluster()
 
         # obtain the action
         omega_current = np.zeros([self.M_sim])
@@ -577,24 +636,25 @@ class MA_UCMEC_dyna_noncoop(object):
         p_current_idx_record = np.zeros([self.M_sim], dtype=np.int32)
 
         for i in range(self.M_sim):
+
             omega_current[i], p_current_idx = self.action_mapping(action[i])
             p_current_idx_record[i] = p_current_idx
-            # --- [修正：確保數據一致性] ---
+            # Ensure correct power mapping.
             if omega_current[i] == 0:
-                p_current[i] = 0.0  # 讓 Agent 明確看到 "0"
+                p_current[i] = 0.0  # Ensure local action uses zero power.
             else:
                 p_current[i] = (p_current_idx + 1) * p_level
         # print("Chosen CPU ID:", omega_current)
         # print("Power:", p_current)
-
+        
         #計算速率
-        uplink_rate_access = self.uplink_rate_cal(p_current, omega_current, cluster_matrix, theta)
-        front_rate_user = self.front_rate_cal(omega_current, cluster_matrix)
+        uplink_rate_access = self.uplink_rate_cal(p_current, omega_current, self.cluster_matrix, theta)
+        front_rate_user = self.front_rate_cal(omega_current, self.cluster_matrix)
         self.uplink_rate_access_b = uplink_rate_access
         # print("Fronthaul Rate", front_rate_user)
         # print("Uplink Rate (Mbps):", uplink_rate_access / 10e6)
         # print("Average Uplink Rate (Mbps):", np.sum(uplink_rate_access) / (np.count_nonzero(omega_current) * 10e6))
-
+        
         # local computing delay
         local_delay = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
@@ -613,7 +673,7 @@ class MA_UCMEC_dyna_noncoop(object):
         front_delay = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim): #原寫法不合理
             if omega_current[i] != 0:
-                ap_idx = np.where(cluster_matrix[i, :] == 1)[0]
+                ap_idx = np.where(self.cluster_matrix[i, :] == 1)[0]
                 # 算出每個 AP 的 fronthaul delay
                 delays = []
                 for j in ap_idx:
@@ -691,26 +751,7 @@ class MA_UCMEC_dyna_noncoop(object):
             if omega_current[i] != 0:
                 CPU_id = int(omega_current[i] - 1)
                 actual_process_delay[i, 0] = task_mat[i, CPU_id] / np.sum(actual_C[i, :])
-
-        # store component delays for evaluation
-        self.uplink_delay_last = uplink_delay
-        self.actual_process_delay_last = actual_process_delay
-        '''
-        process_delay = cp.max(cp.multiply(task_mat, cp.inv_pos(C)))  # Mx1
-        func = cp.Minimize(cp.sum(cp.maximum(local_delay, front_delay + uplink_delay + process_delay)))
-        # func = cp.Minimize(cp.sum(cp.maximum(local_delay, process_delay)))
-        cons = [0 <= C]
-        for i in range(K):
-            cons += [cp.sum(C[:, i]) <= C_edge[i, 0]]
-
-        prob = cp.Problem(func, cons)
-        prob.solve(solver=cp.SCS, verbose=False)
-        actual_C = C.value
-        actual_process_delay = np.max(task_mat / actual_C, axis=1)
-        # print(actual_process_delay)
-        # print(C.value)
-        '''
-
+        
         # # reward calculation
         # print("Uplink Delay:", uplink_delay)
         # print("Local Delay:", local_delay)
@@ -724,7 +765,20 @@ class MA_UCMEC_dyna_noncoop(object):
         max_delay = 1.0  # 超過 1 秒視為「同樣很爛」，避免 reward 爆
         total_delay = np.minimum(total_delay, max_delay)
 
+        # update per-user segment averages for high-level observation
+        segment_delay = total_delay[:self.M_sim, 0]
+        segment_uplink = uplink_delay[:self.M_sim, 0]
+        segment_front = front_delay[:self.M_sim, 0]
+        self._segment_delay_sum += segment_delay.astype(np.float32)
+        self._segment_uplink_sum += segment_uplink.astype(np.float32)
+        self._segment_front_sum += segment_front.astype(np.float32)
+        self._segment_delay_count += 1
+        count = max(1, self._segment_delay_count)
+        self._segment_avg_delay = self._segment_delay_sum / count
+        self._segment_avg_uplink = self._segment_uplink_sum / count
+        self._segment_avg_front = self._segment_front_sum / count
 
+        
         if self.step_num >= 200:    #>20改>=200
             done = [1] * self.M_sim
         else:
@@ -757,7 +811,27 @@ class MA_UCMEC_dyna_noncoop(object):
             avg_front_delay_ms = 0.0
             avg_actual_process_delay_ms = 0.0
             avg_uplink_rate_Mbps = 0.0
-
+        
+        # High-level reward: total delay + deadline exceed penalty.
+        exceed = np.maximum(total_delay - self.tau_c, 0.0)
+        deadline_penalty = float(np.mean(exceed))
+        self.high_reward_step = -(
+            avg_total_delay_ms / 1000.0
+            + deadline_penalty
+        )
+        '''
+         # High-level reward: deadline satisfaction ratio minus mean of top-2 delays.
+        delays = total_delay[:self.M_sim, 0]
+        satisfy_ratio = float(np.mean(delays <= self.tau_c))
+        if delays.size >= 2:
+            top2 = np.partition(delays, -2)[-2:]
+            top2_mean = float(np.mean(top2))
+        else:
+            top2_mean = float(np.max(delays))
+        #only exceed 0.1
+        tail_excess = max(top2_mean - self.tau_c, 0.0)
+        self.high_reward_step = satisfy_ratio - tail_excess
+        '''
         # 保留原本每 200 step print 的 debug（用上面已經算好的統計量）
         if self.step_num % 200 == 0:
             print("Step Index:", self.step_num)
@@ -774,6 +848,7 @@ class MA_UCMEC_dyna_noncoop(object):
                 print("Average Actual Process Delay (ms):", avg_actual_process_delay_ms)
                 print("Average Uplink Rate (Mbps):", avg_uplink_rate_Mbps)
                 print("Offloading user", active)
+                print("cluster size", self.current_cluster_size)
             else:
                 print("No Offloading Users")
 
@@ -815,9 +890,10 @@ class MA_UCMEC_dyna_noncoop(object):
             self.Task_density[0, i],
             self.omega_last[i],
             self.p_last[i],
-            self.delay_last[i, 0]
+            self.delay_last[i, 0],
+            self.current_cluster_size[i]
             ])
-            norm_obs = raw_obs / self.norm_factor #試試沒正規化
+            norm_obs = raw_obs / self.norm_factor # normalize
             sub_agent_obs.append(norm_obs)
 
             sub_agent_reward.append(reward[i])
@@ -829,7 +905,13 @@ class MA_UCMEC_dyna_noncoop(object):
             else:
                 sub_agent_info.append({})
 
+        self._channel_ready = False
         return [sub_agent_obs, sub_agent_reward, sub_agent_done, sub_agent_info]
+
+    def step(self, action):
+        if not self._channel_ready:
+            self.advance_channel()
+        return self.step_low(action)
 
 
 if __name__ == "__main__":

@@ -18,19 +18,16 @@ class MA_UCMEC_dyna_noncoop(object):
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
         self.M_sim = 10  # number of users for simulation
-        self.N_sim = 50  # number of APs for simulation 50
+        self.N_sim = 100  # number of APs for simulation 50
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
 
-        #加速h計算
-        self.h_real = np.empty((self.M, self.N, self.varsig), dtype=np.float64)
-        self.h_imag = np.empty_like(self.h_real)
         self.rng = np.random.default_rng(seed)
 
         # locations of users and APs
-        self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
-        self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
+        self.locations_users = self.rng.random([self.M, 2]) * 600  # 2-D location of users
+        self.locations_aps = self.rng.random([self.N, 2]) * 600  # 2-D location of APs
         # mobility
         self.user_dest = None
         self.user_speed = None
@@ -38,12 +35,12 @@ class MA_UCMEC_dyna_noncoop(object):
 
         # location of 3 CPUs
         self.locations_cpu = np.zeros([3, 2])
-        self.locations_cpu[0, 0] = 300
-        self.locations_cpu[0, 1] = 300
-        self.locations_cpu[1, 0] = 600
-        self.locations_cpu[1, 1] = 300
-        self.locations_cpu[2, 0] = 450
-        self.locations_cpu[2, 1] = 600
+        self.locations_cpu[0, 0] = 200
+        self.locations_cpu[0, 1] = 200
+        self.locations_cpu[1, 0] = 400
+        self.locations_cpu[1, 1] = 200
+        self.locations_cpu[2, 0] = 300
+        self.locations_cpu[2, 1] = 400
         # self.locations_cpu[3, 0] = 600
         # self.locations_cpu[3, 1] = 600
 
@@ -123,7 +120,7 @@ class MA_UCMEC_dyna_noncoop(object):
         # fronthaul channel parameter
         # fronthaul channel
         # front_chan = np.zeros([N, K])
-        self.bandwidth_f = 1e9  # bandwidth of fronthaul channel 2GHz?  2e9
+        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  2e9
         self.epsilon = 6e-4  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
@@ -166,18 +163,19 @@ class MA_UCMEC_dyna_noncoop(object):
         # parameter init
         self.n_agents = self.M_sim
         self.agent_num = self.n_agents
-        self.obs_dim = 5  # set the observation dimension of agents
+        self.obs_dim = 8  # set the observation dimension of agents
         self.action_dim = 10
         self._render = render
         # action space: [omega_1,omega_2,...,omega_K,p]  K+1 continuous vector for each agent
         # a in {0,1,2,3,4}, p in {0, 1, 2, 3, 4} (totally 5 levels (p+1)/5*100 mW)
         self.omega_last = np.zeros([self.M_sim])
         self.p_last = np.zeros([self.M_sim])
+        self.p_idx_last = np.zeros([self.M_sim], dtype=np.int32)
         self.delay_last = np.zeros([self.M_sim, 1])
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(10)] * self.n_agents))
         # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
         # r in [0, 10e8]
-        self.norm_factor = np.array([819200.0*5, 1000.0/5, 3.0, self.P_max, 2.0])   #對obs做正規化用的，根據論文修改100000改為819200
+        self.norm_factor = np.array([819200.0*5, 1000.0/5, 1.0, 1.0, 1.0, 1.0, self.P_max, 1.0])   #對obs做正規化用的，根據論文修改100000改為819200
         self.obs_low = np.zeros(self.obs_dim)  # [0, 0, 0, 0, 0]
         self.obs_high = np.ones(self.obs_dim)  # [1, 1, 1, 1, 1]
         # obs = {task data size, task computing density, action index, total delay of last time slot}
@@ -187,6 +185,29 @@ class MA_UCMEC_dyna_noncoop(object):
         # self.np_random = None
         self.uplink_rate_access_b = np.zeros([self.M_sim, 1])
         self.step_num = 0
+        self.cluster_interval = 20
+        self._interval_total_delay_sum = 0.0
+        self._interval_total_delay_count = 0
+        self._interval_local_delay_sum = 0.0
+        self._interval_local_delay_count = 0
+        self._interval_uplink_delay_sum = 0.0
+        self._interval_uplink_delay_count = 0
+        self._interval_front_delay_sum = 0.0
+        self._interval_front_delay_count = 0
+        self._interval_process_delay_sum = 0.0
+        self._interval_process_delay_count = 0
+        self._interval_uplink_rate_sum = 0.0
+        self._interval_uplink_rate_count = 0
+        self._interval_offload_users_sum = 0
+        self._interval_steps = 0
+        self._interval_deadline_ok = 0
+        self._interval_deadline_total = 0
+        self._interval_offload_deadline_ok = 0
+        self._interval_offload_deadline_total = 0
+        self._interval_total_delay_vals = []
+        self._interval_uplink_delay_vals = []
+        self._interval_front_delay_vals = []
+        self.last_interval_metrics = None
         
         #預先定義求解器問題
         self.opt_probs = []
@@ -270,7 +291,12 @@ class MA_UCMEC_dyna_noncoop(object):
             sorted_idx = sorted_idx[::-1]                       # 反轉成大到小
             chosen = sorted_idx[:self.cluster_size]             # 取前 cluster_size 個 AP index
             ap_index_list[i, :] = chosen
+            #if i == 1:
+                #print(self.step_num)
+                #print(self.user_speed[i])
             for k_idx in chosen:
+                #if i == 1:
+                    #print('ap', k_idx, 'beta',self.beta[i, k_idx],'distance', self.distance_matrix[i, k_idx])
                 cluster_matrix[i, int(k_idx)] = 1
         return cluster_matrix
 
@@ -372,6 +398,29 @@ class MA_UCMEC_dyna_noncoop(object):
     def render(self, mode='human'):
         pass
 
+    def _reset_interval_stats(self):
+        self._interval_total_delay_sum = 0.0
+        self._interval_total_delay_count = 0
+        self._interval_local_delay_sum = 0.0
+        self._interval_local_delay_count = 0
+        self._interval_uplink_delay_sum = 0.0
+        self._interval_uplink_delay_count = 0
+        self._interval_front_delay_sum = 0.0
+        self._interval_front_delay_count = 0
+        self._interval_process_delay_sum = 0.0
+        self._interval_process_delay_count = 0
+        self._interval_uplink_rate_sum = 0.0
+        self._interval_uplink_rate_count = 0
+        self._interval_offload_users_sum = 0
+        self._interval_steps = 0
+        self._interval_deadline_ok = 0
+        self._interval_deadline_total = 0
+        self._interval_offload_deadline_ok = 0
+        self._interval_offload_deadline_total = 0
+        self._interval_total_delay_vals = []
+        self._interval_uplink_delay_vals = []
+        self._interval_front_delay_vals = []
+
     def reset(self):
         #重製mobility
         if self.is_mobile:
@@ -379,11 +428,11 @@ class MA_UCMEC_dyna_noncoop(object):
             min_speed = 10 * self.tau_c
 
             # 每個 user 的當前 waypoint
-            self.user_dest = self.rng.random((self.M, 2)) * 900  
+            self.user_dest = self.rng.random((self.M, 2)) * 300  
             # 每個 user 的速度（整段 waypoint 期間固定）
             self.user_speed = self.rng.uniform(min_speed, max_speed, (self.M, 1))
             #重抽用戶位置
-            self.locations_users = self.rng.random([self.M, 2]) * 900
+            self.locations_users = self.rng.random([self.M, 2]) * 300
         else:
             self.user_dest = None
             self.user_speed = None
@@ -421,7 +470,9 @@ class MA_UCMEC_dyna_noncoop(object):
         self.mu = np.sqrt(self.delta) * kappa_1 + np.sqrt(1 - self.delta) * kappa_2
         
         # 回傳observation
-        self.step_num = 0 
+        self.step_num = 0
+        self._reset_interval_stats()
+        self.last_interval_metrics = None
         '''
         self.Task_size = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
         #self.Task_size = self.rng.uniform(50000, 100000, [1, self.M])
@@ -432,13 +483,17 @@ class MA_UCMEC_dyna_noncoop(object):
         self.Task_density = self.rng.uniform(100, 200, [1, self.M])
 
         sub_agent_obs = []
+        # 預先建立Local Processing 的 One-Hot 向量: [1, 0, 0, 0]
+        init_omega_oh = np.zeros(self.K + 1)
+        init_omega_oh[0] = 1.0
         for i in range(self.agent_num):
-            raw_obs = np.array([    #obs改為一次全部正規化
-            self.Task_size[0, i],
-            self.Task_density[0, i],
-            0,
-            0,
-            0])
+            raw_obs = np.concatenate([
+            [self.Task_size[0, i]],
+            [self.Task_density[0, i]],
+            init_omega_oh,      # 插入 One-Hot 向量
+            [0],                # p_last
+            [0]                 # delay_last
+        ])
             norm_obs = raw_obs / self.norm_factor #正規化
             sub_agent_obs.append(norm_obs)
 
@@ -465,7 +520,7 @@ class MA_UCMEC_dyna_noncoop(object):
 
                 if dist <= 1e-6:
                     # 已經在 waypoint 上（或數值上非常接近）：直接抽新 waypoint + 速度，下一步再走
-                    self.user_dest[i, :] = self.rng.random(2) * 900
+                    self.user_dest[i, :] = self.rng.random(2) * 300
                     self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
                     continue
 
@@ -475,7 +530,7 @@ class MA_UCMEC_dyna_noncoop(object):
                     self.locations_users[i, 1] = self.user_dest[i, 1]
 
                     # 抵達後，立刻為「下一個段落」抽新的 waypoint 和速度
-                    self.user_dest[i, :] = self.rng.random(2) * 900
+                    self.user_dest[i, :] = self.rng.random(2) * 300
                     self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
                 else:
                     # 還沒到 waypoint，沿著目前方向走 step_dist
@@ -485,7 +540,7 @@ class MA_UCMEC_dyna_noncoop(object):
                     self.locations_users[i, 1] += dir_y * step_dist
 
             # 把 user 位置拉回900內
-            self.locations_users = np.clip(self.locations_users, 0, 900)
+            self.locations_users = np.clip(self.locations_users, 0, 300)
 
         # distance
         diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
@@ -527,7 +582,7 @@ class MA_UCMEC_dyna_noncoop(object):
         # self.PL 和 self.mu 都是 (M, N) 矩陣，直接進行元素級運算
         self.beta = np.power(10, self.PL / 10.0) * np.power(10, (self.sigma_s * self.mu) / 10.0)
 
-
+        '''
         # 4. 計算 Small Scale Fading (h) - 一次生成所有亂數
         # 形狀: (M, N, varsig)
         #self.h_real = self.rng.normal(loc=0, scale=0.5, size=(self.M, self.N, self.varsig))
@@ -540,12 +595,10 @@ class MA_UCMEC_dyna_noncoop(object):
 
         self.h = self.h_real + 1j * self.h_imag
 
-        
-
         # 5. 計算 Access Channel - 利用 Broadcasting
         # self.beta 形狀是 (M, N)，需要擴展維度變成 (M, N, 1) 才能跟 (M, N, varsig) 的 h 相乘
         self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
-        
+        '''
         # MMSE channel estimation(一樣改為numpy版本)
         '''
         theta = np.zeros([self.M, self.N])
@@ -556,9 +609,9 @@ class MA_UCMEC_dyna_noncoop(object):
         '''
         theta = (self.tau_p * self.P_max * (self.beta ** 2)) / (self.tau_p * self.P_max * self.beta + self.noise_access)
         
-
+        
         # 根據論文將cluster改為每10個time slot做一次
-        if self.step_num == 1 or self.step_num % 10 == 0:
+        if self.step_num == 1 or self.step_num % self.cluster_interval == 0:
             self.cluster_matrix = self.cluster()
         cluster_matrix = self.cluster_matrix
         
@@ -567,16 +620,17 @@ class MA_UCMEC_dyna_noncoop(object):
         # obtain the action
         omega_current = np.zeros([self.M_sim])
         p_current = np.zeros([self.M_sim])
-        p_level = self.P_max / 4
-        
+        p_level = self.P_max / 3
+        p_current_idx_record = np.zeros([self.M_sim], dtype=np.int32)
 
         for i in range(self.M_sim):
             omega_current[i], p_current_idx = self.action_mapping(action[i])
+            p_current_idx_record[i] = p_current_idx
             # --- [修正：確保數據一致性] ---
             if omega_current[i] == 0:
                 p_current[i] = 0.0  # 讓 Agent 明確看到 "0"
             else:
-                p_current[i] = (p_current_idx + 1) * p_level
+                p_current[i] = p_current_idx * p_level
         # print("Chosen CPU ID:", omega_current)
         # print("Power:", p_current)
 
@@ -710,7 +764,7 @@ class MA_UCMEC_dyna_noncoop(object):
         for i in range(self.M_sim):
             total_delay[i, 0] = np.maximum(local_delay[i, 0],
                                            front_delay[i, 0] + uplink_delay[i, 0] + actual_process_delay[i, 0])
-        max_delay = 2.0  # 超過 2 秒視為「同樣很爛」，避免 reward 爆
+        max_delay = 1.0  # 超過 1 秒視為「同樣很爛」，避免 reward 爆
         total_delay = np.minimum(total_delay, max_delay)
 
 
@@ -723,19 +777,19 @@ class MA_UCMEC_dyna_noncoop(object):
         for i in range(self.M_sim):
             reward[i, 0] = -0.9 * total_delay[i, 0] + 0.1 * (self.tau_c - total_delay[i, 0])  #原來的reward
         
-        # === 每個 time step 的統計量 (之後會塞進 info) ===
-        # Average Total Delay (所有 user)
+        # === ??time step???? (?????) ===
+        # Average Total Delay (all users)
         avg_total_delay_ms = float(np.mean(total_delay) * 1000.0)
 
-        # Local user：omega_current == 0
+        # Local user: omega_current == 0
         local_mask = (omega_current == 0)
         if np.any(local_mask):
             avg_local_delay_ms = float(np.mean(local_delay[local_mask, 0]) * 1000.0)
         else:
             avg_local_delay_ms = 0.0
-        # Offloading user：omega_current != 0
+        # Offloading user: omega_current != 0
         offload_mask = (omega_current != 0)
-        active = int(np.count_nonzero(offload_mask))  # Offloading user 數量
+        active = int(np.count_nonzero(offload_mask))
         if active > 0:
             avg_uplink_delay_ms = float(np.mean(uplink_delay[offload_mask, 0]) * 1000.0)
             avg_front_delay_ms = float(np.mean(front_delay[offload_mask, 0]) * 1000.0)
@@ -747,26 +801,118 @@ class MA_UCMEC_dyna_noncoop(object):
             avg_actual_process_delay_ms = 0.0
             avg_uplink_rate_Mbps = 0.0
 
-        # 保留原本每 200 step print 的 debug（用上面已經算好的統計量）
-        if self.step_num % 200 == 0:
+        # Accumulate interval statistics
+        self._interval_steps += 1
+        self._interval_total_delay_sum += float(np.sum(total_delay))
+        self._interval_total_delay_count += int(total_delay.size)
+        self._interval_total_delay_vals.extend(total_delay[:self.M_sim, 0].tolist())
+
+        if np.any(local_mask):
+            self._interval_local_delay_sum += float(np.sum(local_delay[local_mask, 0]))
+            self._interval_local_delay_count += int(np.count_nonzero(local_mask))
+
+        if active > 0:
+            self._interval_uplink_delay_sum += float(np.sum(uplink_delay[offload_mask, 0]))
+            self._interval_uplink_delay_count += int(active)
+            self._interval_front_delay_sum += float(np.sum(front_delay[offload_mask, 0]))
+            self._interval_front_delay_count += int(active)
+            self._interval_process_delay_sum += float(np.sum(actual_process_delay[offload_mask, 0]))
+            self._interval_process_delay_count += int(active)
+            self._interval_uplink_rate_sum += float(np.sum(uplink_rate_access[offload_mask, 0]))
+            self._interval_uplink_rate_count += int(active)
+            self._interval_uplink_delay_vals.extend(uplink_delay[offload_mask, 0].tolist())
+            self._interval_front_delay_vals.extend(front_delay[offload_mask, 0].tolist())
+
+        self._interval_offload_users_sum += int(active)
+        deadline_ok = total_delay[:self.M_sim, 0] <= self.tau_c
+        self._interval_deadline_ok += int(np.sum(deadline_ok))
+        self._interval_deadline_total += int(self.M_sim)
+        if active > 0:
+            offload_deadline_ok = total_delay[offload_mask, 0] <= self.tau_c
+            self._interval_offload_deadline_ok += int(np.sum(offload_deadline_ok))
+            self._interval_offload_deadline_total += int(active)
+
+        interval_end = (self.step_num % self.cluster_interval == 0)
+        if interval_end:
+            interval_steps = max(1, self._interval_steps)
+            total_delay_avg = self._interval_total_delay_sum / max(1, self._interval_total_delay_count)
+            local_delay_avg = (
+                self._interval_local_delay_sum / max(1, self._interval_local_delay_count)
+            )
+            uplink_delay_avg = (
+                self._interval_uplink_delay_sum / max(1, self._interval_uplink_delay_count)
+            )
+            front_delay_avg = (
+                self._interval_front_delay_sum / max(1, self._interval_front_delay_count)
+            )
+            process_delay_avg = (
+                self._interval_process_delay_sum / max(1, self._interval_process_delay_count)
+            )
+            uplink_rate_avg = (
+                self._interval_uplink_rate_sum / max(1, self._interval_uplink_rate_count)
+            )
+            avg_offloading_users = self._interval_offload_users_sum / interval_steps
+            deadline_satisfaction_ratio = (
+                self._interval_deadline_ok / max(1, self._interval_deadline_total)
+            )
+            offloading_deadline_satisfaction_ratio = (
+                self._interval_offload_deadline_ok / max(1, self._interval_offload_deadline_total)
+            )
+            if self._interval_total_delay_vals:
+                deadline_penalty = float(
+                    np.mean(np.maximum(np.array(self._interval_total_delay_vals) - self.tau_c, 0.0))
+                )
+            else:
+                deadline_penalty = 0.0
+            high_reward_interval = -(total_delay_avg + deadline_penalty)
+            total_delay_p95_ms = (
+                float(np.percentile(self._interval_total_delay_vals, 95)) * 1000.0
+                if self._interval_total_delay_vals else 0.0
+            )
+            uplink_delay_p95_ms = (
+                float(np.percentile(self._interval_uplink_delay_vals, 95)) * 1000.0
+                if self._interval_uplink_delay_vals else 0.0
+            )
+            front_delay_p95_ms = (
+                float(np.percentile(self._interval_front_delay_vals, 95)) * 1000.0
+                if self._interval_front_delay_vals else 0.0
+            )
+
             print("Step Index:", self.step_num)
-            print("Average Total Delay (ms):", avg_total_delay_ms)
+            print("Interval Steps:", interval_steps)
+            print("Average Total Delay (ms):", total_delay_avg * 1000.0)
+            print("Average Local Delay (ms):", local_delay_avg * 1000.0)
+            print("Average Uplink Delay (ms):", uplink_delay_avg * 1000.0)
+            print("Average Front Delay (ms):", front_delay_avg * 1000.0)
+            print("Average Actual Process Delay (ms):", process_delay_avg * 1000.0)
+            print("Average Uplink Rate (Mbps):", uplink_rate_avg / 1e6)
+            print("Average Offloading Users:", avg_offloading_users)
+            print("Deadline Satisfaction Ratio:", deadline_satisfaction_ratio)
+            print("Offloading Deadline Satisfaction Ratio:", offloading_deadline_satisfaction_ratio)
+            print("P95 Total Delay (ms):", total_delay_p95_ms)
+            print("P95 Uplink Delay (ms):", uplink_delay_p95_ms)
+            print("P95 Front Delay (ms):", front_delay_p95_ms)
 
-            if np.any(local_mask):
-                print("Average Local Delay (ms):", avg_local_delay_ms)
-            else:
-                print("Average Local Delay (ms): 0 (no local users)")
+            self.last_interval_metrics = {
+                "avg_total_delay_ms": total_delay_avg * 1000.0,
+                "avg_local_delay_ms": local_delay_avg * 1000.0,
+                "avg_uplink_delay_ms": uplink_delay_avg * 1000.0,
+                "avg_front_delay_ms": front_delay_avg * 1000.0,
+                "avg_actual_process_delay_ms": process_delay_avg * 1000.0,
+                "avg_uplink_rate_Mbps": uplink_rate_avg / 1e6,
+                "avg_offloading_users": avg_offloading_users,
+                "deadline_satisfaction_ratio": deadline_satisfaction_ratio,
+                "offloading_deadline_satisfaction_ratio": offloading_deadline_satisfaction_ratio,
+                "high_reward_step": high_reward_interval,
+                "p95_total_delay_ms": total_delay_p95_ms,
+                "p95_uplink_delay_ms": uplink_delay_p95_ms,
+                "p95_front_delay_ms": front_delay_p95_ms,
+            }
 
-            if active > 0:
-                print("Average Uplink Delay (ms):", avg_uplink_delay_ms)
-                print("Average Front Delay (ms):", avg_front_delay_ms)
-                print("Average Actual Process Delay (ms):", avg_actual_process_delay_ms)
-                print("Average Uplink Rate (Mbps):", avg_uplink_rate_Mbps)
-                print("Offloading user", active)
-            else:
-                print("No Offloading Users")
+            self._reset_interval_stats()
 
         # task parameter
+
         '''
         #Task_size_next = self.rng.uniform(50000, 100000, [1, self.M])  # task size in bit
         Task_size_next = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
@@ -788,6 +934,7 @@ class MA_UCMEC_dyna_noncoop(object):
         self.delay_last = total_delay
         self.omega_last = omega_current
         self.p_last = p_current
+        self.p_idx_last = np.asarray(p_current_idx_record, dtype=np.int32)
         metrics_info = {
             "avg_total_delay_ms": avg_total_delay_ms,
             "avg_local_delay_ms": avg_local_delay_ms,
@@ -798,12 +945,17 @@ class MA_UCMEC_dyna_noncoop(object):
             "num_offloading_users": active
         }
         for i in range(self.agent_num):
-            raw_obs = np.array([    #obs改為一次全部正規化
-            self.Task_size[0, i],
-            self.Task_density[0, i],
-            self.omega_last[i],
-            self.p_last[i],
-            self.delay_last[i, 0]
+            # make One-Hot
+            omega_idx = int(self.omega_last[i])
+            omega_oh = np.zeros(self.K + 1)
+            omega_oh[omega_idx] = 1.0
+            #observation
+            raw_obs = np.concatenate([
+                [self.Task_size[0, i]],
+                [self.Task_density[0, i]],
+                omega_oh,               # One-Hot
+                [self.p_last[i]],
+                [self.delay_last[i, 0]]
             ])
             norm_obs = raw_obs / self.norm_factor #試試沒正規化
             sub_agent_obs.append(norm_obs)

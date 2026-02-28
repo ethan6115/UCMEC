@@ -48,6 +48,14 @@ class RMAPPO():
         self._use_valuenorm = args.use_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
+        # Debug flag: high-level trainer uses set encoder in this codebase.
+        self._is_high_level = getattr(args, "use_set_encoder", False)
+        # ===== PPO DEBUG STATS BEGIN (safe to delete later) =====
+        self._debug_ppo_stats = True
+        self._debug_ppo_stats_count = 0
+        self._debug_ppo_stats_max = 20
+        self._debug_ppo_stats_printed_shape = False
+        # ===== PPO DEBUG STATS END =====
 
         assert (self._use_popart and self._use_valuenorm) == False, (
             "self._use_popart and self._use_valuenorm can not be set True simultaneously")
@@ -120,7 +128,6 @@ class RMAPPO():
         value_preds_batch = check(value_preds_batch).to(**self.tpdv)
         return_batch = check(return_batch).to(**self.tpdv)
         active_masks_batch = check(active_masks_batch).to(**self.tpdv)
-
         # Reshape to do in a single forward pass for all steps
         values, action_log_probs, dist_entropy = self.policy.evaluate_actions(share_obs_batch,
                                                                               obs_batch,
@@ -133,15 +140,55 @@ class RMAPPO():
         # actor update
         imp_weights = torch.exp(action_log_probs - old_action_log_probs_batch)
 
+        # ===== PPO DEBUG STATS BEGIN (safe to delete later) =====
+        if self._is_high_level and self._debug_ppo_stats and self._debug_ppo_stats_count < self._debug_ppo_stats_max:
+            def _stat_str(name, x):
+                x_det = x.detach()
+                return (
+                    f"{name}(mean/std/min/max)="
+                    f"{x_det.mean().item():.6f}/"
+                    f"{x_det.std(unbiased=False).item():.6f}/"
+                    f"{x_det.min().item():.6f}/"
+                    f"{x_det.max().item():.6f}"
+                )
+
+            if not self._debug_ppo_stats_printed_shape:
+                print("[HIGH-PPO-DEBUG] shapes:")
+                print("  adv_targ:", tuple(adv_targ.shape))
+                print("  action_log_probs:", tuple(action_log_probs.shape))
+                print("  old_action_log_probs_batch:", tuple(old_action_log_probs_batch.shape))
+                print("  values:", tuple(values.shape))
+                print("  return_batch:", tuple(return_batch.shape))
+                print("  active_masks_batch:", tuple(active_masks_batch.shape))
+                self._debug_ppo_stats_printed_shape = True
+
+            print(f"[HIGH-PPO-DEBUG] ppo_update #{self._debug_ppo_stats_count + 1}")
+            print("  " + _stat_str("adv", adv_targ))
+            print("  " + _stat_str("new_logp", action_log_probs))
+            print("  " + _stat_str("old_logp", old_action_log_probs_batch))
+            print("  " + _stat_str("ratio", imp_weights))
+            print("  " + _stat_str("values", values))
+            print("  " + _stat_str("returns", return_batch))
+            self._debug_ppo_stats_count += 1
+        # ===== PPO DEBUG STATS END =====
+
         surr1 = imp_weights * adv_targ
         surr2 = torch.clamp(imp_weights, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
 
+        policy_obj = torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True)
         if self._use_policy_active_masks:
-            policy_action_loss = (-torch.sum(torch.min(surr1, surr2),
-                                             dim=-1,
-                                             keepdim=True) * active_masks_batch).sum() / active_masks_batch.sum()
+            policy_active_masks = active_masks_batch
+            # Support high-level per-user PPO terms, e.g. policy_obj [B, M, 1],
+            # while preserving the original low-level behavior ([B, 1]).
+            while policy_active_masks.dim() < policy_obj.dim():
+                policy_active_masks = policy_active_masks.unsqueeze(1)
+            if policy_active_masks.shape[1] == 1 and policy_obj.shape[1] != 1:
+                policy_active_masks = policy_active_masks.expand(
+                    -1, policy_obj.shape[1], *policy_active_masks.shape[2:]
+                )
+            policy_action_loss = (-(policy_obj) * policy_active_masks).sum() / policy_active_masks.sum()
         else:
-            policy_action_loss = -torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True).mean()
+            policy_action_loss = -(policy_obj).mean()
 
         policy_loss = policy_action_loss
 

@@ -10,14 +10,22 @@ current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 
 # Toggle here to switch evaluation mode without CLI args.
-USE_HIERARCHICAL = True
-PER_USER = True
+USE_HIERARCHICAL = False
+PER_USER = False
 HIERARCHICAL_INTERVAL = 10
+#HIERARCHICAL_INTERVAL = 10
 USE_RECURRENT = True
+DEBUG_HIGH_ACTION_PROBS = True  # Print Bernoulli bit probs / AP mapping at high-level decision steps.
 USE_PIVOTAL_STATS = False
-SEEDS = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+#SEEDS = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-#SEEDS = [18, 62, 53, 14, 58, 161, 37, 88, 95, 150, 11, 18, 29, 189, 198, 153, 26, 59, 365, 884, 946, 56, 99, 75, 263, 776, 94, 71, 735, 64]
+SEEDS = [18, 62, 53, 14, 58,
+         161, 37, 88, 95, 150,
+         11, 17, 29, 189, 198,
+         153, 26, 59, 365, 84,
+         946, 56, 99, 75, 263,
+         776, 94, 71, 735, 64]
+#SEEDS = [1, 1001, 2001, 3001, 4001, 5001, 6001, 7001, 8001, 9001]
 #SEEDS = [3]
 
 def make_env(seed):
@@ -28,24 +36,40 @@ def make_env(seed):
             return MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True, seed=seed)
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 #IPPO
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5_oldobs\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter\models/actor_999.pt"
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter_edge\models/actor_999.pt"
+
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\smallEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5_interval20\models/actor_999.pt"
 
 #peruser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser_attn/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_peruser_attn/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newreward2/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newreward2/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA/models/actor_high.pt"
+
+#fixhigh
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_freezehigh\run1\models\actor_999.pt"
+
+#test
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_config_test\run6/models/actor_99.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_config_test\run6/models/actor_high.pt"
 
 #alluser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front_attn/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_front_attn/models/actor_high.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\oldobs\hierarchical_IPPO_alluser_front_attn/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\oldobs\hierarchical_IPPO_alluser_front_attn/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\smallEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_interval20_clusterobs/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\smallEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_interval20_clusterobs/models/actor_high.pt"
 
 #MAPPO
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\coop_rnn\MAPPO_cluster5\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\coop_rnn\MAPPO_cluster5_newobs\models/actor_999.pt"
 
 #MAPPO peruser
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs/models/actor_999.pt"
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs/models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs/models/actor_high.pt"
 
 #fixlow peruser
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_fixlow\hierarchical_fixIPPO_peruser_ratio/models/actor_999.pt"
@@ -53,11 +77,11 @@ MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmapp
 
 # 匯入必要的模組
 try:
-    from envs.MA_UCMEC_dyna_noncoop_test import MA_UCMEC_dyna_noncoop
+    from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
@@ -70,7 +94,7 @@ def evaluate(model_path):
     # 1. 取得設定參數 (Arguments)
     # 使用 config.py 中的預設參數
     parser = get_config()
-    # 如果你的訓練參數有大幅修改（例如 hidden_size），請在這裡透過參數覆蓋，或是確保 config.py 是正確的
+    # 如果訓練參數有大幅修改，在這裡透過參數覆蓋，或是確保 config.py 是正確的
     args = parser.parse_args([])
     high_args = copy.deepcopy(args)
     high_args.hidden_size = 128
@@ -136,11 +160,13 @@ def evaluate(model_path):
         high_actor.eval()
 
     # 5. Evaluate with multiple seeds
-    num_episodes = 10
+    num_episodes = 1
     seed_results = {
         "avg_total_delay_ms": [],
         "avg_local_delay_ms": [],
         "avg_uplink_delay_ms": [],
+        "total_delay_ms_max": [],
+        "total_delay_ms_p95": [],
         "uplink_delay_ms_max": [],
         "uplink_delay_ms_p95": [],
         "front_delay_ms_max": [],
@@ -151,6 +177,11 @@ def evaluate(model_path):
         "avg_offloading_users": [],
         "deadline_satisfaction_ratio": [],
         "offloading_deadline_satisfaction_ratio": [],
+        "p_front_bottleneck_offload": [],
+        "p_front_bottleneck_offload_fail": [],
+        "fail_bottleneck_uplink_ratio": [],
+        "fail_bottleneck_front_ratio": [],
+        "fail_bottleneck_process_ratio": [],
         "power_dist": [],
         "cpu_select_ratio": [],
         "cpu_select_entropy": [],
@@ -175,6 +206,8 @@ def evaluate(model_path):
         allsum_avg_total_delay = 0.0
         allsum_avg_local_delay = 0.0
         allsum_avg_uplink_delay = 0.0
+        allsum_total_delay_max = 0.0
+        allsum_total_delay_p95 = 0.0
         allsum_uplink_delay_max = 0.0
         allsum_uplink_delay_p95 = 0.0
         allsum_front_delay_max = 0.0
@@ -185,6 +218,13 @@ def evaluate(model_path):
         allsum_num_offloading_users = 0.0
         allsum_deadline_satisfaction_ratio = 0.0
         allsum_offloading_deadline_satisfaction_ratio = 0.0
+        allsum_offload_count = 0
+        allsum_offload_fail_count = 0
+        allsum_front_bottleneck_offload_count = 0
+        allsum_front_bottleneck_offload_fail_count = 0
+        allsum_fail_bottleneck_uplink_count = 0
+        allsum_fail_bottleneck_front_count = 0
+        allsum_fail_bottleneck_process_count = 0
         allsum_power_dist = np.zeros(4, dtype=np.float64)
         allsum_cpu_counts = None
         allsum_offload = 0
@@ -210,6 +250,8 @@ def evaluate(model_path):
             sum_avg_total_delay = 0.0
             sum_avg_local_delay = 0.0
             sum_avg_uplink_delay = 0.0
+            sum_total_delay_max = 0.0
+            sum_total_delay_p95 = 0.0
             sum_uplink_delay_max = 0.0
             sum_uplink_delay_p95 = 0.0
             sum_front_delay_max = 0.0
@@ -222,6 +264,13 @@ def evaluate(model_path):
             sum_agent_steps = 0
             sum_offloading_deadline_satisfaction_ratio = 0.0
             sum_offload_steps = 0
+            sum_offload_count = 0
+            sum_offload_fail_count = 0
+            sum_front_bottleneck_offload_count = 0
+            sum_front_bottleneck_offload_fail_count = 0
+            sum_fail_bottleneck_uplink_count = 0
+            sum_fail_bottleneck_front_count = 0
+            sum_fail_bottleneck_process_count = 0
             sum_power_dist = np.zeros(4, dtype=np.float64)
             metric_steps = 0
             dist_steps = 0
@@ -244,6 +293,7 @@ def evaluate(model_path):
                 high_masks = np.ones((1, 1), dtype=np.float32)
                 attn_max_list = []
                 attn_entropy_list = []
+                prev_high_global_obs_dbg = None
 
             step_count = 0
             while not all(dones):
@@ -253,6 +303,11 @@ def evaluate(model_path):
                 if USE_HIERARCHICAL and (step_count % HIERARCHICAL_INTERVAL == 0):
                     global_obs = env.get_global_obs()
                     global_obs = np.expand_dims(global_obs, axis=0)
+                    if isinstance(high_rnn_states, torch.Tensor):
+                        high_rnn_states_dbg = high_rnn_states.clone()
+                    else:
+                        high_rnn_states_dbg = high_rnn_states.copy()
+
                     with torch.no_grad():
                         high_action, _, high_rnn_states = high_actor(
                             global_obs, high_rnn_states, high_masks, deterministic=True
@@ -267,6 +322,65 @@ def evaluate(model_path):
                         high_action = high_action.cpu().numpy().astype(int).squeeze(0)
                     else:
                         high_action = int(high_action.cpu().numpy().flatten()[0])
+
+                    # ===== DEBUG_HIGH_ACTION_PROBS BEGIN (safe to delete this whole block later) =====
+                    if USE_HIERARCHICAL and PER_USER and DEBUG_HIGH_ACTION_PROBS and hasattr(high_actor, "encoder"):
+                        print(f"[HIGH-DEBUG] step={step_count}")
+                        with torch.no_grad():
+                            obs_t = torch.as_tensor(global_obs, dtype=torch.float32)
+                            rnn_t = torch.as_tensor(high_rnn_states_dbg, dtype=torch.float32)
+                            mask_t = torch.as_tensor(high_masks, dtype=torch.float32)
+
+                            h_ctx_dbg, g_dbg = high_actor.encoder(obs_t)
+                            if high_args.use_recurrent_policy or high_args.use_naive_recurrent_policy:
+                                g_dbg, _ = high_actor.rnn(g_dbg, rnn_t, mask_t)
+                            g_expand_dbg = g_dbg.unsqueeze(1).expand_as(h_ctx_dbg)
+                            actor_in_dbg = torch.cat([h_ctx_dbg, g_expand_dbg], dim=-1)
+                            flat_dbg = actor_in_dbg.reshape(-1, actor_in_dbg.shape[-1])
+                            feat_dbg = high_actor.actor_mlp(flat_dbg)
+                            logits_dbg = high_actor.logits(feat_dbg).reshape(obs_t.shape[0], obs_t.shape[1], -1)
+                            bit_probs = torch.sigmoid(logits_dbg).cpu().numpy().squeeze(0)  # [M_sim, 10]
+                            logits_np = logits_dbg.cpu().numpy().squeeze(0)  # [M_sim, 10]
+                            print("[HIGH-DEBUG] logits mean/std:", float(logits_np.mean()), float(logits_np.std()))
+                            print("[HIGH-DEBUG] logits user0:", np.round(logits_np[0], 3))
+                            if env.M_sim > 1:
+                                print("[HIGH-DEBUG] logits user1:", np.round(logits_np[1], 3))
+
+
+                        
+                        print(
+                            "[HIGH-DEBUG] obs diff u0-u1 max:",
+                            float(np.max(np.abs(global_obs[0, 0] - global_obs[0, 1])))
+                            if env.M_sim > 1 else 0.0,
+                        )
+                        if prev_high_global_obs_dbg is not None:
+                            print(
+                                "[HIGH-DEBUG] obs diff prev-high-step max:",
+                                float(np.max(np.abs(global_obs - prev_high_global_obs_dbg))),
+                            )
+                        prev_high_global_obs_dbg = global_obs.copy()
+                        print("[HIGH-DEBUG] bit_probs user0:", np.round(bit_probs[0], 3))
+                        if env.M_sim > 1:
+                            print("[HIGH-DEBUG] bit_probs user1:", np.round(bit_probs[1], 3))
+                        print("[HIGH-DEBUG] bit_probs mean:", np.round(bit_probs.mean(axis=0), 3))
+                        print("[HIGH-DEBUG] probs std:", float(bit_probs.std()))
+                        print("[HIGH-DEBUG] action user0:", high_action[0])
+                        if env.M_sim > 1:
+                            print("[HIGH-DEBUG] action user1:", high_action[1])
+
+                        if hasattr(env, "_top10_ap_idx") and env._top10_ap_idx is not None:
+                            for u in range(min(2, env.M_sim)):
+                                top10 = env._top10_ap_idx[u]
+                                mask_u = high_action[u].astype(bool)
+                                if not np.any(mask_u):
+                                    # apply_high_action() fallback: choose top-1 AP when all-zero
+                                    selected = np.array([top10[0]], dtype=np.int32)
+                                else:
+                                    selected = top10[mask_u]
+                                print(f"[HIGH-DEBUG] user{u} top10:", top10.tolist())
+                                print(f"[HIGH-DEBUG] user{u} selected_APs:", selected.tolist())
+                    # ===== DEBUG_HIGH_ACTION_PROBS END =====
+
                     if hasattr(env, "apply_high_action"):
                         env.apply_high_action(high_action)
                     else:
@@ -409,19 +523,48 @@ def evaluate(model_path):
                             omega_last = env.omega_last
                             if delay_last is not None and omega_last is not None:
                                 delay_ms = delay_last[:env.M_sim, 0] * 1000.0
+                                sum_total_delay_max += float(np.max(delay_ms))
+                                sum_total_delay_p95 += float(np.percentile(delay_ms, 95))
                                 sum_deadline_satisfaction_ratio += float(np.sum(delay_ms <= env.tau_c * 1000.0))
                                 sum_agent_steps += int(delay_ms.size)
                                 offload_mask = omega_last != 0
                                 if np.any(offload_mask):
                                     offload_delay_ms = delay_ms[offload_mask]
-                                    sum_offloading_deadline_satisfaction_ratio += float(np.sum(offload_delay_ms <= 100.0))
+                                    sum_offloading_deadline_satisfaction_ratio += float(np.sum(offload_delay_ms <= env.tau_c * 1000.0))
                                     sum_offload_steps += int(offload_delay_ms.size)
+                        # Bottleneck stats for offloading users.
+                        if (
+                            hasattr(env, "uplink_delay_last")
+                            and hasattr(env, "front_delay_last")
+                            and hasattr(env, "actual_process_delay_last")
+                            and hasattr(env, "omega_last")
+                            and hasattr(env, "delay_last")
+                        ):
+                            omega_last = env.omega_last
+                            offload_mask = omega_last != 0
+                            if np.any(offload_mask):
+                                uplink_delay = env.uplink_delay_last[:env.M_sim, 0]
+                                front_delay = env.front_delay_last[:env.M_sim, 0]
+                                process_delay = env.actual_process_delay_last[:env.M_sim, 0]
+                                comp = np.stack([uplink_delay, front_delay, process_delay], axis=0)
+                                bottleneck_idx = np.argmax(comp, axis=0)  # 0=uplink,1=front,2=process
+                                sum_offload_count += int(offload_mask.sum())
+                                sum_front_bottleneck_offload_count += int(np.sum((bottleneck_idx == 1) & offload_mask))
+                                total_delay = env.delay_last[:env.M_sim, 0]
+                                fail_mask = (total_delay > env.tau_c) & offload_mask
+                                if np.any(fail_mask):
+                                    sum_offload_fail_count += int(fail_mask.sum())
+                                    sum_front_bottleneck_offload_fail_count += int(
+                                        np.sum((bottleneck_idx == 1) & fail_mask)
+                                    )
+                                    fail_idx = bottleneck_idx[fail_mask]
+                                    sum_fail_bottleneck_uplink_count += int(np.sum(fail_idx == 0))
+                                    sum_fail_bottleneck_front_count += int(np.sum(fail_idx == 1))
+                                    sum_fail_bottleneck_process_count += int(np.sum(fail_idx == 2))
 
                 # Power distribution over all agents (including local=0).
-                if hasattr(env, "p_last") and env.p_last is not None:
-                    p_level = env.P_max / 4.0
-                    levels = np.rint(env.p_last / p_level).astype(int)
-                    levels = np.clip(levels, 0, 3)
+                if hasattr(env, "p_idx_last") and env.p_idx_last is not None:
+                    levels = np.clip(env.p_idx_last.astype(int), 0, 3)
                     counts = np.bincount(levels, minlength=4)
                     total = counts.sum()
                     if total > 0:
@@ -437,6 +580,8 @@ def evaluate(model_path):
                 allsum_avg_total_delay += sum_avg_total_delay / metric_steps
                 allsum_avg_local_delay += sum_avg_local_delay / metric_steps
                 allsum_avg_uplink_delay += sum_avg_uplink_delay / metric_steps
+                allsum_total_delay_max += sum_total_delay_max / metric_steps
+                allsum_total_delay_p95 += sum_total_delay_p95 / metric_steps
                 allsum_uplink_delay_max += sum_uplink_delay_max / metric_steps
                 allsum_uplink_delay_p95 += sum_uplink_delay_p95 / metric_steps
                 allsum_front_delay_max += sum_front_delay_max / metric_steps
@@ -449,6 +594,13 @@ def evaluate(model_path):
                     allsum_deadline_satisfaction_ratio += sum_deadline_satisfaction_ratio / sum_agent_steps
                 if sum_offload_steps > 0:
                     allsum_offloading_deadline_satisfaction_ratio += sum_offloading_deadline_satisfaction_ratio / sum_offload_steps
+            allsum_offload_count += sum_offload_count
+            allsum_offload_fail_count += sum_offload_fail_count
+            allsum_front_bottleneck_offload_count += sum_front_bottleneck_offload_count
+            allsum_front_bottleneck_offload_fail_count += sum_front_bottleneck_offload_fail_count
+            allsum_fail_bottleneck_uplink_count += sum_fail_bottleneck_uplink_count
+            allsum_fail_bottleneck_front_count += sum_fail_bottleneck_front_count
+            allsum_fail_bottleneck_process_count += sum_fail_bottleneck_process_count
             if dist_steps > 0:
                 allsum_power_dist += sum_power_dist / dist_steps
             if cpu_counts is None:
@@ -472,6 +624,8 @@ def evaluate(model_path):
         seed_results["avg_total_delay_ms"].append(allsum_avg_total_delay / num_episodes)
         seed_results["avg_local_delay_ms"].append(allsum_avg_local_delay / num_episodes)
         seed_results["avg_uplink_delay_ms"].append(allsum_avg_uplink_delay / num_episodes)
+        seed_results["total_delay_ms_max"].append(allsum_total_delay_max / num_episodes)
+        seed_results["total_delay_ms_p95"].append(allsum_total_delay_p95 / num_episodes)
         seed_results["uplink_delay_ms_max"].append(allsum_uplink_delay_max / num_episodes)
         seed_results["uplink_delay_ms_p95"].append(allsum_uplink_delay_p95 / num_episodes)
         seed_results["front_delay_ms_max"].append(allsum_front_delay_max / num_episodes)
@@ -482,6 +636,23 @@ def evaluate(model_path):
         seed_results["avg_offloading_users"].append(allsum_num_offloading_users / num_episodes)
         seed_results["deadline_satisfaction_ratio"].append(allsum_deadline_satisfaction_ratio / num_episodes)
         seed_results["offloading_deadline_satisfaction_ratio"].append(allsum_offloading_deadline_satisfaction_ratio / num_episodes)
+        offload_den = max(1, int(allsum_offload_count))
+        offload_fail_den = max(1, int(allsum_offload_fail_count))
+        seed_results["p_front_bottleneck_offload"].append(
+            allsum_front_bottleneck_offload_count / offload_den
+        )
+        seed_results["p_front_bottleneck_offload_fail"].append(
+            allsum_front_bottleneck_offload_fail_count / offload_fail_den
+        )
+        seed_results["fail_bottleneck_uplink_ratio"].append(
+            allsum_fail_bottleneck_uplink_count / offload_fail_den
+        )
+        seed_results["fail_bottleneck_front_ratio"].append(
+            allsum_fail_bottleneck_front_count / offload_fail_den
+        )
+        seed_results["fail_bottleneck_process_ratio"].append(
+            allsum_fail_bottleneck_process_count / offload_fail_den
+        )
         seed_results["power_dist"].append(allsum_power_dist / num_episodes)
         if allsum_cpu_counts is None:
             allsum_cpu_counts = np.zeros(env.K, dtype=np.int64)

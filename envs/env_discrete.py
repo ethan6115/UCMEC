@@ -24,8 +24,8 @@ from envs.MA_CBO_dyna_noncoop import MA_CBO_dyna_noncoop
 from envs.MA_MPO_dyna_coop import MA_MPO_dyna_coop
 from envs.MA_MPO_dyna_noncoop import MA_MPO_dyna_noncoop
 #切換hierarchical版本
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical_peruser
+from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
+from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical_peruser
 #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
 #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical
 
@@ -48,7 +48,7 @@ class DiscreteActionEnv(object):
             else:
                 self.env = MA_UCMEC_dyna_noncoop_hierarchical(seed=seed)
         else:
-            self.env = MA_UCMEC_dyna_coop(seed=seed)
+            self.env = MA_UCMEC_dyna_noncoop(seed=seed)
         self.num_agent = self.env.agent_num
         self.signal_obs_dim = self.env.obs_dim
         self.signal_action_dim = self.env.action_dim
