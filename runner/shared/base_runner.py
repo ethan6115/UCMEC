@@ -89,6 +89,7 @@ class Runner(object):
         self.use_hierarchical = getattr(self.all_args, "use_hierarchical", False)
         self.hierarchical_interval = getattr(self.all_args, "hierarchical_interval", 10)
         self.use_high_peruser = getattr(self.all_args, "use_high_peruser", False)
+        self.use_high_peruser_credit = getattr(self.all_args, "use_high_peruser_credit", False)
         
 
         if self.use_hierarchical:

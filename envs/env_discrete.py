@@ -18,6 +18,7 @@ from envs.MA_MPO_stat_noncoop import MA_MPO_stat_noncoop
 
 from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
 from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
+from envs.MA_UCMEC_dyna_noncoop_cluster_rand import MA_UCMEC_dyna_noncoop_cluster_rand
 from envs.MA_UCMEC_dyna_noncoop_origin import MA_UCMEC_dyna_noncoop_origin
 from envs.MA_CBO_dyna_coop import MA_CBO_dyna_coop
 from envs.MA_CBO_dyna_noncoop import MA_CBO_dyna_noncoop
@@ -26,6 +27,9 @@ from envs.MA_MPO_dyna_noncoop import MA_MPO_dyna_noncoop
 #切換hierarchical版本
 from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
 from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical_peruser
+from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect_peruser_reward import (
+    MA_UCMEC_dyna_noncoop_hierarchical_peruser_peruser_reward as MA_UCMEC_dyna_noncoop_hierarchical_peruser_peruser_reward,
+)
 #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
 #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical
 
@@ -41,14 +45,22 @@ class DiscreteActionEnv(object):
         # Decide env here so action/obs semantics stay inside the environment.
         use_hierarchical = getattr(all_args, "use_hierarchical", False) if all_args is not None else False
         use_high_peruser = getattr(all_args, "use_high_peruser", False) if all_args is not None else False
+        use_high_peruser_credit = getattr(all_args, "use_high_peruser_credit", False) if all_args is not None else False
+        use_low_cluster_randomization = getattr(all_args, "use_low_cluster_randomization", False) if all_args is not None else False
         seed = getattr(all_args, "seed", None) if all_args is not None else None
         if use_hierarchical:
             if use_high_peruser:
-                self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(seed=seed)
+                if use_high_peruser_credit:
+                    self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser_peruser_reward(seed=seed)
+                else:
+                    self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(seed=seed)
             else:
                 self.env = MA_UCMEC_dyna_noncoop_hierarchical(seed=seed)
         else:
-            self.env = MA_UCMEC_dyna_noncoop(seed=seed)
+            if use_low_cluster_randomization:
+                self.env = MA_UCMEC_dyna_noncoop_cluster_rand(seed=seed)
+            else:
+                self.env = MA_UCMEC_dyna_noncoop(seed=seed)
         self.num_agent = self.env.agent_num
         self.signal_obs_dim = self.env.obs_dim
         self.signal_action_dim = self.env.action_dim

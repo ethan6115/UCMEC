@@ -50,6 +50,7 @@ class RMAPPO():
         self._use_policy_active_masks = args.use_policy_active_masks
         # Debug flag: high-level trainer uses set encoder in this codebase.
         self._is_high_level = getattr(args, "use_set_encoder", False)
+        self._use_high_peruser_credit = getattr(args, "use_high_peruser_credit", False)
         # ===== PPO DEBUG STATS BEGIN (safe to delete later) =====
         self._debug_ppo_stats = True
         self._debug_ppo_stats_count = 0
@@ -63,7 +64,11 @@ class RMAPPO():
         if self._use_popart:
             self.value_normalizer = self.policy.critic.v_out
         elif self._use_valuenorm:
-            self.value_normalizer = ValueNorm(1, device=self.device)
+            if self._is_high_level and self._use_high_peruser_credit:
+                num_users = getattr(args, "num_agents", 1)
+                self.value_normalizer = ValueNorm((num_users, 1), device=self.device)
+            else:
+                self.value_normalizer = ValueNorm(1, device=self.device)
         else:
             self.value_normalizer = None
 
@@ -280,4 +285,3 @@ class RMAPPO():
     def prep_rollout(self):
         self.policy.actor.eval()
         self.policy.critic.eval()
-

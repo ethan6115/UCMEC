@@ -228,10 +228,22 @@ def get_config():
     parser.add_argument("--use_hierarchical", action="store_true", default=False)
     parser.add_argument("--hierarchical_interval", type=int, default=10)
     parser.add_argument(
+        "--use_low_cluster_randomization",
+        action="store_true",
+        default=False,
+        help="for non-hierarchical env: sample episode-level cluster size k in [1,10] and append cluster_size_norm to low-level obs",
+    )
+    parser.add_argument(
         "--use_high_peruser",
         action="store_true",
         default=False,
         help="enable per-user high-level actor with shared scalar critic",
+    )
+    parser.add_argument(
+        "--use_high_peruser_credit",
+        action="store_true",
+        default=False,
+        help="enable per-user high-level credit path (experimental; keeps legacy path when disabled)",
     )
 
     # replay buffer parameters

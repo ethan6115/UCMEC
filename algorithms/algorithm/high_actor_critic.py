@@ -129,12 +129,20 @@ class HighCritic(nn.Module):
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
         self._recurrent_N = args.recurrent_N
+        self._use_high_peruser_credit = getattr(args, "use_high_peruser_credit", False)
         self.tpdv = dict(dtype=torch.float32, device=device)
 
         obs_dim = cent_obs_space.shape[-1]
         self.encoder = HighContextEncoder(args, obs_dim)
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+
+        self.critic_mlp = nn.Sequential(
+            nn.Linear(self.hidden_size * 2, self.hidden_size),
+            nn.ReLU() if self._use_ReLU else nn.Tanh(),
+            nn.Linear(self.hidden_size, self.hidden_size),
+            nn.ReLU() if self._use_ReLU else nn.Tanh(),
+        )
 
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
 
@@ -152,8 +160,15 @@ class HighCritic(nn.Module):
         cent_obs = check(cent_obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
-        _, g = self.encoder(cent_obs)
+        h_ctx, g = self.encoder(cent_obs)
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             g, rnn_states = self.rnn(g, rnn_states, masks)
-        values = self.v_out(g)
+        if self._use_high_peruser_credit:
+            g_expand = g.unsqueeze(1).expand_as(h_ctx)
+            critic_in = torch.cat([h_ctx, g_expand], dim=-1)
+            flat = critic_in.reshape(-1, critic_in.shape[-1])
+            feat = self.critic_mlp(flat)
+            values = self.v_out(feat).reshape(cent_obs.shape[0], cent_obs.shape[1], 1)
+        else:
+            values = self.v_out(g)
         return values, rnn_states

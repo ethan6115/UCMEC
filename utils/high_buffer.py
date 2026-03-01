@@ -17,8 +17,10 @@ class HighReplayBuffer(object):
         self._use_popart = args.use_popart
         self._use_valuenorm = args.use_valuenorm
         self._use_proper_time_limits = args.use_proper_time_limits
+        self.use_high_peruser_credit = getattr(args, "use_high_peruser_credit", False)
 
         obs_shape = obs_space.shape
+        self.credit_users = obs_shape[0] if self.use_high_peruser_credit else 1
 
         self.share_obs = np.zeros(
             (self.episode_length + 1, self.n_rollout_threads, *obs_shape), dtype=np.float32
@@ -32,7 +34,7 @@ class HighReplayBuffer(object):
         self.rnn_states_critic = np.zeros_like(self.rnn_states)
 
         self.value_preds = np.zeros(
-            (self.episode_length + 1, self.n_rollout_threads, 1, 1), dtype=np.float32
+            (self.episode_length + 1, self.n_rollout_threads, self.credit_users, 1), dtype=np.float32
         )
         self.returns = np.zeros_like(self.value_preds)
 
@@ -43,10 +45,12 @@ class HighReplayBuffer(object):
             (self.episode_length, self.n_rollout_threads, obs_shape[0], 1), dtype=np.float32
         )
         self.rewards = np.zeros(
-            (self.episode_length, self.n_rollout_threads, 1, 1), dtype=np.float32
+            (self.episode_length, self.n_rollout_threads, self.credit_users, 1), dtype=np.float32
         )
 
-        self.masks = np.ones((self.episode_length + 1, self.n_rollout_threads, 1, 1), dtype=np.float32)
+        self.masks = np.ones(
+            (self.episode_length + 1, self.n_rollout_threads, self.credit_users, 1), dtype=np.float32
+        )
         self.bad_masks = np.ones_like(self.masks)
         self.active_masks = np.ones_like(self.masks)
 
@@ -181,13 +185,23 @@ class HighReplayBuffer(object):
         rnn_states = self.rnn_states[:-1].reshape(batch_size, *self.rnn_states.shape[3:])
         rnn_states_critic = self.rnn_states_critic[:-1].reshape(batch_size, *self.rnn_states_critic.shape[3:])
         actions = self.actions.reshape(batch_size, num_users, action_dim)
-        value_preds = self.value_preds[:-1].reshape(batch_size, 1)
-        returns = self.returns[:-1].reshape(batch_size, 1)
-        masks = self.masks[:-1].reshape(batch_size, 1)
-        active_masks = self.active_masks[:-1].reshape(batch_size, 1)
+        if self.use_high_peruser_credit:
+            value_preds = self.value_preds[:-1].reshape(batch_size, self.credit_users, 1)
+            returns = self.returns[:-1].reshape(batch_size, self.credit_users, 1)
+            # Actor/critic RNN masks are sequence-level, keep scalar mask channel.
+            masks = self.masks[:-1, :, :1, :].reshape(batch_size, 1)
+            active_masks = self.active_masks[:-1].reshape(batch_size, self.credit_users, 1)
+        else:
+            value_preds = self.value_preds[:-1].reshape(batch_size, 1)
+            returns = self.returns[:-1].reshape(batch_size, 1)
+            masks = self.masks[:-1].reshape(batch_size, 1)
+            active_masks = self.active_masks[:-1].reshape(batch_size, 1)
         action_log_probs = self.action_log_probs.reshape(batch_size, num_users, 1)
-        advantages = advantages.reshape(batch_size, 1)
-        advantages_user = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
+        if self.use_high_peruser_credit:
+            adv_targ_all = advantages.reshape(batch_size, num_users, 1)
+        else:
+            advantages = advantages.reshape(batch_size, 1)
+            adv_targ_all = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
 
         for indices in sampler:
             share_obs_batch = share_obs[indices]
@@ -200,7 +214,7 @@ class HighReplayBuffer(object):
             masks_batch = masks[indices]
             active_masks_batch = active_masks[indices]
             old_action_log_probs_batch = action_log_probs[indices]
-            adv_targ = advantages_user[indices]
+            adv_targ = adv_targ_all[indices]
 
             yield (
                 share_obs_batch,
@@ -234,12 +248,27 @@ class HighReplayBuffer(object):
         action_log_probs = self.action_log_probs.transpose(1, 0, 2, 3).reshape(
             batch_size, num_users, 1
         )
-        value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
-        returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
-        masks = self.masks[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
-        active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
-        advantages = advantages.transpose(1, 0, 2, 3).reshape(batch_size, 1)
-        advantages_user = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
+        if self.use_high_peruser_credit:
+            value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(
+                batch_size, self.credit_users, 1
+            )
+            returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(
+                batch_size, self.credit_users, 1
+            )
+            masks = self.masks[:-1, :, :1, :].transpose(1, 0, 2, 3).reshape(batch_size, 1)
+            active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(
+                batch_size, self.credit_users, 1
+            )
+        else:
+            value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
+            returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
+            masks = self.masks[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
+            active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(batch_size, 1)
+        if self.use_high_peruser_credit:
+            advantages_user = advantages.transpose(1, 0, 2, 3).reshape(batch_size, num_users, 1)
+        else:
+            advantages = advantages.transpose(1, 0, 2, 3).reshape(batch_size, 1)
+            advantages_user = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
         rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(batch_size, 1, self.recurrent_N, self.hidden_size)
         rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 0, 2, 3, 4).reshape(
             batch_size, 1, self.recurrent_N, self.hidden_size
@@ -326,14 +355,41 @@ class HighReplayBuffer(object):
         obs = self.obs[:-1].transpose(1, 0, 2, 3)
         actions = self.actions.transpose(1, 0, 2, 3)
         action_log_probs = self.action_log_probs.transpose(1, 0, 2, 3)
-        value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
-        returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
-        masks = self.masks[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
-        active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
-        advantages = advantages.transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
-        advantages_user = np.broadcast_to(
-            advantages[:, :, None, :], (n_rollout_threads, self.episode_length, num_users, 1)
-        )
+        if self.use_high_peruser_credit:
+            value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, self.credit_users, 1
+            )
+            returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, self.credit_users, 1
+            )
+            masks = self.masks[:-1, :, :1, :].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, 1
+            )
+            active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, self.credit_users, 1
+            )
+        else:
+            value_preds = self.value_preds[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, 1
+            )
+            returns = self.returns[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, 1
+            )
+            masks = self.masks[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, 1
+            )
+            active_masks = self.active_masks[:-1].transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, 1
+            )
+        if self.use_high_peruser_credit:
+            advantages_user = advantages.transpose(1, 0, 2, 3).reshape(
+                n_rollout_threads, self.episode_length, num_users, 1
+            )
+        else:
+            advantages = advantages.transpose(1, 0, 2, 3).reshape(n_rollout_threads, self.episode_length, 1)
+            advantages_user = np.broadcast_to(
+                advantages[:, :, None, :], (n_rollout_threads, self.episode_length, num_users, 1)
+            )
 
         for start_ind in range(0, batch_size, num_envs_per_batch):
             share_obs_batch = []

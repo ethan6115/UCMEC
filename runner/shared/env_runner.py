@@ -46,6 +46,7 @@ class EnvRunner(Runner):
             if self.use_hierarchical:
                 high_episode_reward_sum = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
                 high_episode_reward_count = 0
+                num_high_users = self.high_obs_space.shape[0] if self.use_high_peruser else 1
 
             for step in range(self.episode_length):
 
@@ -65,12 +66,15 @@ class EnvRunner(Runner):
                 if self.use_hierarchical and (step % self.hierarchical_interval == 0):
                     self.high_trainer.prep_rollout()
                     global_obs = self._get_global_obs_batch()
+                    high_masks_in = self.high_buffer.masks[self.high_buffer.step]
+                    if self.use_high_peruser and self.use_high_peruser_credit:
+                        high_masks_in = high_masks_in[:, :1, :]
                     value_h, action_h, logp_h, rnn_h, rnn_hc = self.high_trainer.policy.get_actions(
                         global_obs, global_obs,
                         # Reason: use high_buffer's own step counter to avoid index drift.
                         self.high_buffer.rnn_states[self.high_buffer.step].squeeze(1),
                         self.high_buffer.rnn_states_critic[self.high_buffer.step].squeeze(1),
-                        self.high_buffer.masks[self.high_buffer.step].squeeze(1),
+                        high_masks_in.squeeze(1),
                     )
                     action_h = _t2n(action_h)
                     if self.use_high_peruser:
@@ -109,7 +113,10 @@ class EnvRunner(Runner):
                         "logp_h": _t2n(logp_h),
                         "value_h": _t2n(value_h),
                     }
-                    self._high_reward_acc = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
+                    if self.use_high_peruser and self.use_high_peruser_credit:
+                        self._high_reward_acc = np.zeros((self.n_rollout_threads, num_high_users, 1), dtype=np.float32)
+                    else:
+                        self._high_reward_acc = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
                     self._high_reward_count = 0
                     self._high_pending = True
 
@@ -145,20 +152,35 @@ class EnvRunner(Runner):
                 if self.use_hierarchical and self._high_pending:
                     step_reward = None
                     if hasattr(self.envs, "envs"):
-                        step_reward = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
+                        if self.use_high_peruser and self.use_high_peruser_credit:
+                            step_reward = np.zeros((self.n_rollout_threads, num_high_users, 1), dtype=np.float32)
+                        else:
+                            step_reward = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
                         valid = False
                         for t, env in enumerate(self.envs.envs):
                             src = env.env if hasattr(env, "env") else env
                             if hasattr(src, "high_reward_step"):
-                                step_reward[t, 0] = float(src.high_reward_step)
+                                if self.use_high_peruser and self.use_high_peruser_credit:
+                                    step_reward[t, :, 0] = float(src.high_reward_step)
+                                else:
+                                    step_reward[t, 0] = float(src.high_reward_step)
                                 valid = True
                         if not valid:
                             step_reward = None
                     else:
                         if hasattr(self.envs, "high_reward_step"):
-                            step_reward = np.array([[float(self.envs.high_reward_step)]], dtype=np.float32)
+                            if self.use_high_peruser and self.use_high_peruser_credit:
+                                step_reward = np.full(
+                                    (self.n_rollout_threads, num_high_users, 1),
+                                    float(self.envs.high_reward_step),
+                                    dtype=np.float32,
+                                )
+                            else:
+                                step_reward = np.array([[float(self.envs.high_reward_step)]], dtype=np.float32)
                     if step_reward is None:
                         step_reward = np.mean(rewards, axis=1)
+                        if self.use_high_peruser and self.use_high_peruser_credit:
+                            step_reward = np.repeat(step_reward[:, None, :], num_high_users, axis=1)
                     interval_end = (step % self.hierarchical_interval) == (self.hierarchical_interval - 1)
                     episode_end = step == (self.episode_length - 1)
                     if interval_end or episode_end:
@@ -166,19 +188,49 @@ class EnvRunner(Runner):
                             for t, env in enumerate(self.envs.envs):
                                 src = env.env if hasattr(env, "env") else env
                                 if hasattr(src, "compute_interval_reward"):
-                                    step_reward[t, 0] = float(src.compute_interval_reward())
+                                    interval_reward = src.compute_interval_reward()
+                                    if self.use_high_peruser and self.use_high_peruser_credit:
+                                        arr = np.asarray(interval_reward, dtype=np.float32).reshape(-1)
+                                        if arr.size == 1:
+                                            step_reward[t, :, 0] = float(arr.item())
+                                        else:
+                                            step_reward[t, :, 0] = arr[:num_high_users]
+                                    else:
+                                        step_reward[t, 0] = float(interval_reward)
                         elif hasattr(self.envs, "compute_interval_reward"):
-                            step_reward = np.array(
-                                [[float(self.envs.compute_interval_reward())]], dtype=np.float32
-                            )
+                            interval_reward = self.envs.compute_interval_reward()
+                            if self.use_high_peruser and self.use_high_peruser_credit:
+                                arr = np.asarray(interval_reward, dtype=np.float32).reshape(-1)
+                                if arr.size == 1:
+                                    step_reward = np.full(
+                                        (self.n_rollout_threads, num_high_users, 1),
+                                        float(arr.item()),
+                                        dtype=np.float32,
+                                    )
+                                else:
+                                    step_reward = arr.reshape(1, num_high_users, 1)
+                            else:
+                                step_reward = np.array(
+                                    [[float(interval_reward)]], dtype=np.float32
+                                )
                     self._high_reward_acc += step_reward
                     self._high_reward_count += 1
                     if interval_end or episode_end:
                         sum_reward = self._high_reward_acc
-                        masks_h = np.ones((self.n_rollout_threads, 1, 1), dtype=np.float32)
-                        masks_h[dones.all(axis=1)] = 0.0
+                        if self.use_high_peruser and self.use_high_peruser_credit:
+                            masks_h = np.ones((self.n_rollout_threads, num_high_users, 1), dtype=np.float32)
+                            masks_h[dones.all(axis=1), :, :] = 0.0
+                        else:
+                            masks_h = np.ones((self.n_rollout_threads, 1, 1), dtype=np.float32)
+                            masks_h[dones.all(axis=1)] = 0.0
                         t = self._high_transition
                         if self.use_high_peruser:
+                            value_h = t["value_h"]
+                            if value_h.ndim == 2:
+                                value_h = value_h[:, None, :]
+                            if self.use_high_peruser_credit:
+                                if value_h.shape[1] == 1:
+                                    value_h = np.repeat(value_h, num_high_users, axis=1)
                             self.high_buffer.insert(
                                 t["global_obs"],
                                 t["global_obs"],
@@ -186,8 +238,8 @@ class EnvRunner(Runner):
                                 t["rnn_hc"][:, None, ...],
                                 t["action_h"],
                                 t["logp_h"],
-                                t["value_h"][:, None, :],
-                                sum_reward.reshape(self.n_rollout_threads, 1, 1),
+                                value_h,
+                                sum_reward.reshape(self.n_rollout_threads, -1, 1),
                                 masks_h,
                             )
                         else:
@@ -202,7 +254,10 @@ class EnvRunner(Runner):
                                 masks_h
                             )
                         self._high_pending = False
-                    high_episode_reward_sum += step_reward
+                    if step_reward.ndim == 3:
+                        high_episode_reward_sum += np.mean(step_reward, axis=1)
+                    else:
+                        high_episode_reward_sum += step_reward
                     high_episode_reward_count += 1
 
 
@@ -217,12 +272,20 @@ class EnvRunner(Runner):
                 # Reason: compute returns from high_buffer contents like low-level.
                 self.high_trainer.prep_rollout()
                 if self.use_high_peruser:
+                    high_masks_in = self.high_buffer.masks[-1]
+                    if self.use_high_peruser and self.use_high_peruser_credit:
+                        high_masks_in = high_masks_in[:, :1, :]
                     next_values = self.high_trainer.policy.get_values(
                         self.high_buffer.share_obs[-1],
                         self.high_buffer.rnn_states_critic[-1].squeeze(1),
-                        self.high_buffer.masks[-1].squeeze(1),
+                        high_masks_in.squeeze(1),
                     )
-                    next_values = _t2n(next_values)[:, None, :]
+                    next_values = _t2n(next_values)
+                    if next_values.ndim == 2:
+                        next_values = next_values[:, None, :]
+                    if self.use_high_peruser and self.use_high_peruser_credit:
+                        if next_values.shape[1] == 1:
+                            next_values = np.repeat(next_values, self.high_obs_space.shape[0], axis=1)
                 else:
                     next_values = self.high_trainer.policy.get_values(
                         np.concatenate(self.high_buffer.share_obs[-1]),
@@ -334,7 +397,11 @@ class EnvRunner(Runner):
                 self.high_buffer.share_obs[0] = global_obs[:, None, ...].copy()
                 self.high_buffer.obs[0] = global_obs[:, None, ...].copy()
             # Reason: reset interval-avg reward tracking at episode start.
-            self._high_reward_acc = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
+            if self.use_high_peruser and self.use_high_peruser_credit:
+                num_high_users = self.high_obs_space.shape[0]
+                self._high_reward_acc = np.zeros((self.n_rollout_threads, num_high_users, 1), dtype=np.float32)
+            else:
+                self._high_reward_acc = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)
             self._high_reward_count = 0
             self._high_pending = False
             self._high_transition = {}

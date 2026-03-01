@@ -29,10 +29,15 @@ mat_paths = [
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newreward2\high_reward.mat', 
     r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_ma\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_ma\high_reward.mat',  
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_ma_rewardA2\reward.mat', 
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_ma_rewardA2\high_reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA\reward.mat', 
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA\high_reward.mat',
     r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\run1\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\run1\high_reward.mat',
+    #perreward
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward\reward.mat', 
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward\high_reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\run1\reward.mat', 
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\run1\high_reward.mat',
 
     #fix high
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_freezehigh\run1\reward.mat', 

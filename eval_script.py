@@ -10,8 +10,8 @@ current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 
 # Toggle here to switch evaluation mode without CLI args.
-USE_HIERARCHICAL = False
-PER_USER = False
+USE_HIERARCHICAL = True
+PER_USER = True
 HIERARCHICAL_INTERVAL = 10
 #HIERARCHICAL_INTERVAL = 10
 USE_RECURRENT = True
@@ -38,7 +38,7 @@ def make_env(seed):
 #IPPO
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5_oldobs\models/actor_999.pt"
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter\models/actor_999.pt"
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter_edge\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter_edge\models/actor_999.pt"
 
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5\models/actor_999.pt"
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\smallEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5_interval20\models/actor_999.pt"
@@ -51,8 +51,9 @@ MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rma
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA/models/actor_999.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA/models/actor_high.pt"
 
-#fixhigh
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_freezehigh\run1\models\actor_999.pt"
+#peruser_perreward
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward2/models/actor_999.pt"
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward2/models/actor_high.pt"
 
 #test
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_config_test\run6/models/actor_99.pt"

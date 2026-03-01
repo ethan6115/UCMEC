@@ -17,7 +17,7 @@ class MA_UCMEC_dyna_noncoop(object):
         self.varsig = 16  # number of antennas of each AP
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
-        self.M_sim = 20  # number of users for simulation
+        self.M_sim = 10  # number of users for simulation
         self.N_sim = 50  # number of APs for simulation 50
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
@@ -62,7 +62,7 @@ class MA_UCMEC_dyna_noncoop(object):
         # user parameter
         #self.C_user = self.rng.uniform(2e8, 5e8, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(2e9, 5e9, [1, self.M])  # computing resource of users  in Hz
-        self.cluster_size = 1
+        self.cluster_size = 5
 
         # edge server parameter
         self.C_edge = self.rng.uniform(30e9, 50e9, [self.K, 1])  # computing resource of edge server in CPU  20e9, 40e9
@@ -130,7 +130,6 @@ class MA_UCMEC_dyna_noncoop(object):
         self.noise_front = 1.380649 * 1e-23 * 290 * 9 * self.bandwidth_f  # fronthaul channel noise variance #原始code有錯，大了10倍 
         self.G = np.zeros([self.N, self.K])  # random antenna gain
         self.fai = math.pi / 6  # Main lobe beamwidth 原為math.pi / 6
-        #根據論文改10跟0.1(10和-10db)試試，原為self.Gm = 63.1 self.Gs = 0.631
         self.Gm = 63.1  # Directivity gain of main lobes
         self.Gs = 0.631  # Directivity gain of side lobes
         self.Gain = np.array(
