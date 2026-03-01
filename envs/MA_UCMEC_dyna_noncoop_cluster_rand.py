@@ -15,7 +15,7 @@ class MA_UCMEC_dyna_noncoop_cluster_rand(MA_UCMEC_dyna_noncoop):
     def __init__(self, render=False, seed=None):
         super().__init__(render=render, seed=seed)
         self.cluster_k_min = 1
-        self.cluster_k_max = 10
+        self.cluster_k_max = 6
 
         # Base env builds 5-dim low-level obs. This variant appends cluster_size_norm.
         self.obs_dim = 6
