@@ -17,7 +17,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
         self.M_sim = 10  # number of users for simulation
-        self.N_sim = 50  # number of APs for simulation 50
+        self.N_sim = 100  # number of APs for simulation 50
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
@@ -28,8 +28,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.rng = np.random.default_rng(seed)
 
         # locations of users and APs
-        self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
-        self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
+        self.locations_users = self.rng.random([self.M, 2]) * 300  # 2-D location of users
+        self.locations_aps = self.rng.random([self.N, 2]) * 300  # 2-D location of APs
         # mobility
         self.user_dest = None
         self.user_speed = None
@@ -37,12 +37,12 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
         # location of 3 CPUs
         self.locations_cpu = np.zeros([3, 2])
-        self.locations_cpu[0, 0] = 300
-        self.locations_cpu[0, 1] = 300
-        self.locations_cpu[1, 0] = 600
-        self.locations_cpu[1, 1] = 300
-        self.locations_cpu[2, 0] = 450
-        self.locations_cpu[2, 1] = 600
+        self.locations_cpu[0, 0] = 100
+        self.locations_cpu[0, 1] = 100
+        self.locations_cpu[1, 0] = 200
+        self.locations_cpu[1, 1] = 100
+        self.locations_cpu[2, 0] = 150
+        self.locations_cpu[2, 1] = 200
         # self.locations_cpu[3, 0] = 600
         # self.locations_cpu[3, 1] = 600
 
@@ -111,7 +111,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # fronthaul channel
         # front_chan = np.zeros([N, K])
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
-        self.epsilon = 6e-4  # blockage density
+        self.epsilon = 0.003  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
@@ -360,20 +360,20 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                 dist = math.sqrt(dx * dx + dy * dy)
                 step_dist = self.user_speed[i, 0]
                 if dist <= 1e-6:
-                    self.user_dest[i, :] = self.rng.random(2) * 900
+                    self.user_dest[i, :] = self.rng.random(2) * 300
                     self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
                     continue
                 if step_dist >= dist:
                     self.locations_users[i, 0] = self.user_dest[i, 0]
                     self.locations_users[i, 1] = self.user_dest[i, 1]
-                    self.user_dest[i, :] = self.rng.random(2) * 900
+                    self.user_dest[i, :] = self.rng.random(2) * 300
                     self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
                 else:
                     dir_x = dx / dist
                     dir_y = dy / dist
                     self.locations_users[i, 0] += dir_x * step_dist
                     self.locations_users[i, 1] += dir_y * step_dist
-            self.locations_users = np.clip(self.locations_users, 0, 900)
+            self.locations_users = np.clip(self.locations_users, 0, 300)
 
         diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
         self.distance_matrix = np.sqrt(np.sum(diff**2, axis=2))
@@ -445,7 +445,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         count = max(1, self._segment_delay_count)
         cpu_pref_norm = self._segment_cpu_counts / count
         local_pref_norm = self._segment_local_counts / count
-        pos_norm = (self.locations_users[:self.M_sim, :2] / 900.0).astype(np.float32)
+        pos_norm = (self.locations_users[:self.M_sim, :2] / 300.0).astype(np.float32)
         max_speed = 20 * self.tau_c
         speed_norm = (self.user_speed[:self.M_sim, 0] / max_speed).reshape(self.M_sim, 1).astype(np.float32)
         obs = np.concatenate(
@@ -582,11 +582,11 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             min_speed = 10 * self.tau_c
 
             # 每個 user 的當前 waypoint
-            self.user_dest = self.rng.random((self.M, 2)) * 900  
+            self.user_dest = self.rng.random((self.M, 2)) * 300  
             # 每個 user 的速度（整段 waypoint 期間固定）
             self.user_speed = self.rng.uniform(min_speed, max_speed, (self.M, 1))
             #重抽用戶位置
-            self.locations_users = self.rng.random([self.M, 2]) * 900
+            self.locations_users = self.rng.random([self.M, 2]) * 300
         else:
             self.user_dest = None
             self.user_speed = None

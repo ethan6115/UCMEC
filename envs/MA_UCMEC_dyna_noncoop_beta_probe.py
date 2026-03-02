@@ -26,7 +26,7 @@ class MA_UCMEC_dyna_noncoop_beta_probe(MA_UCMEC_dyna_noncoop):
     ):
         super().__init__(render=render, seed=seed)
         self.area_size = float(area_size)
-        self.base_area_size = 900.0
+        self.base_area_size = 300.0
         self.print_top10 = bool(print_top10)
         self.print_users = int(print_users)
         self.print_every = max(1, int(print_every))

@@ -18,7 +18,7 @@ class MA_UCMEC_dyna_noncoop(object):
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
         self.M_sim = 10  # number of users for simulation
-        self.N_sim = 100  # number of APs for simulation 50
+        self.N_sim = 50  # number of APs for simulation 50
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
@@ -26,8 +26,8 @@ class MA_UCMEC_dyna_noncoop(object):
         self.rng = np.random.default_rng(seed)
 
         # locations of users and APs
-        self.locations_users = self.rng.random([self.M, 2]) * 300  # 2-D location of users
-        self.locations_aps = self.rng.random([self.N, 2]) * 300  # 2-D location of APs
+        self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
+        self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
         # mobility
         self.user_dest = None
         self.user_speed = None
@@ -35,12 +35,12 @@ class MA_UCMEC_dyna_noncoop(object):
 
         # location of 3 CPUs
         self.locations_cpu = np.zeros([3, 2])
-        self.locations_cpu[0, 0] = 100
-        self.locations_cpu[0, 1] = 100
-        self.locations_cpu[1, 0] = 200
-        self.locations_cpu[1, 1] = 100
-        self.locations_cpu[2, 0] = 150
-        self.locations_cpu[2, 1] = 200
+        self.locations_cpu[0, 0] = 300
+        self.locations_cpu[0, 1] = 300
+        self.locations_cpu[1, 0] = 600
+        self.locations_cpu[1, 1] = 300
+        self.locations_cpu[2, 0] = 450
+        self.locations_cpu[2, 1] = 600
         # self.locations_cpu[3, 0] = 600
         # self.locations_cpu[3, 1] = 600
 
@@ -121,7 +121,7 @@ class MA_UCMEC_dyna_noncoop(object):
         # fronthaul channel
         # front_chan = np.zeros([N, K])
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  2e9
-        self.epsilon = 0.003  # blockage density
+        self.epsilon = 6e-4  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
@@ -297,7 +297,7 @@ class MA_UCMEC_dyna_noncoop(object):
                     if cluster_matrix[i, j] == 1:
                         inter_term += theta[i, j] * self.beta[k, j] * p[k]
 
-            SINR = useful / (inter_term +noise_term)
+            SINR = useful / (inter_term + noise_term)
             raw_rate = self.bandwidth_a * np.log2(1 + SINR)
             uplink_rate_access[i, 0] = max(raw_rate, 1e-9)  # clip，避免 0
 
@@ -386,11 +386,11 @@ class MA_UCMEC_dyna_noncoop(object):
             min_speed = 10 * self.tau_c
 
             # 每個 user 的當前 waypoint
-            self.user_dest = self.rng.random((self.M, 2)) * 300  
+            self.user_dest = self.rng.random((self.M, 2)) * 900  
             # 每個 user 的速度（整段 waypoint 期間固定）
             self.user_speed = self.rng.uniform(min_speed, max_speed, (self.M, 1))
             #重抽用戶位置
-            self.locations_users = self.rng.random([self.M, 2]) * 300
+            self.locations_users = self.rng.random([self.M, 2]) * 900
         else:
             self.user_dest = None
             self.user_speed = None
@@ -472,7 +472,7 @@ class MA_UCMEC_dyna_noncoop(object):
 
                 if dist <= 1e-6:
                     # 已經在 waypoint 上（或數值上非常接近）：直接抽新 waypoint + 速度，下一步再走
-                    self.user_dest[i, :] = self.rng.random(2) * 300
+                    self.user_dest[i, :] = self.rng.random(2) * 900
                     self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
                     continue
 
@@ -482,7 +482,7 @@ class MA_UCMEC_dyna_noncoop(object):
                     self.locations_users[i, 1] = self.user_dest[i, 1]
 
                     # 抵達後，立刻為「下一個段落」抽新的 waypoint 和速度
-                    self.user_dest[i, :] = self.rng.random(2) * 300
+                    self.user_dest[i, :] = self.rng.random(2) * 900
                     self.user_speed[i, 0] = self.rng.uniform(min_speed, max_speed)
                 else:
                     # 還沒到 waypoint，沿著目前方向走 step_dist
@@ -492,7 +492,7 @@ class MA_UCMEC_dyna_noncoop(object):
                     self.locations_users[i, 1] += dir_y * step_dist
 
             # 把 user 位置拉回900內
-            self.locations_users = np.clip(self.locations_users, 0, 300)
+            self.locations_users = np.clip(self.locations_users, 0, 900)
 
         # distance
         diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
