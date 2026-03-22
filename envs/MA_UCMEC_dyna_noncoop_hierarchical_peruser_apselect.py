@@ -111,7 +111,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # fronthaul channel
         # front_chan = np.zeros([N, K])
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
-        self.epsilon = 0.003  # blockage density
+        self.epsilon = 6e-4  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
@@ -156,13 +156,17 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.action_dim = 10
         self._render = render
 
-        # High-level observation: top-10 beta per agent + last cluster size + per-user delay/uplink/front + position/speed.
+        # High-level observation: top-10 beta + top-10 inter-beta + delay/uplink/front + mobility + fronthaul/AP preference stats.
         self.max_delay = 1.0
         self.cluster_size_candidates = list(range(1, 11))
+        # Tuned normalization ranges (300x300 setting, percentile-based).
+        self.beta_db_clip = (-111.0, -79.0)
+        self.inter_beta_db_clip = (-105.0, -71.0)
+        self.front_db_clip = (-93.0, -18.0)
         # High-level action: per-user binary mask over top-10 APs.
         self.high_action_space = spaces.MultiBinary((self.M_sim, 10))
         self.high_action_dim = 10
-        self.high_obs_dim = 52
+        self.high_obs_dim = 62
         self.high_observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.M_sim, self.high_obs_dim), dtype=np.float32
         )
@@ -411,7 +415,12 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
     # [新增] 全域觀測接口
     def get_global_obs(self):
+        def _minmax_clip(x, lo, hi):
+            x = np.clip(x, lo, hi)
+            return (x - lo) / (hi - lo)
+
         beta_top10 = []
+        inter_beta_top10 = []
         top10_idx_all = np.zeros((self.M_sim, 10), dtype=np.int32)
         front_stats = np.zeros((self.M_sim, 30), dtype=np.float32)
         for i in range(self.M_sim):
@@ -419,6 +428,10 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             top_idx = np.argsort(beta_row)[::-1][:10]
             top10_idx_all[i] = top_idx
             beta_top10.append(beta_row[top_idx])
+            # Potential contention seen by user i on candidate APs:
+            # sum of large-scale fading from all other users on those APs.
+            total_beta_top = np.sum(self.beta[:self.M_sim, top_idx], axis=0)
+            inter_beta_top10.append(total_beta_top - beta_row[top_idx])
             ap_idx = top_idx
             for cpu in range(self.K):
                 dist_km = self.distance_matrix_front[ap_idx, cpu]
@@ -426,17 +439,19 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                 alpha = np.where(self.link_type[ap_idx, cpu] == 0, self.alpha_los, self.alpha_nlos)
                 pathloss = np.power(dist_km, -alpha)
                 pl_db = 10.0 * np.log10(pathloss + 1e-12)
-                pl_db = np.clip(pl_db, -110.0, -50.0)
-                pl_norm = (pl_db + 110.0) / 60.0
+                pl_norm = _minmax_clip(pl_db, self.front_db_clip[0], self.front_db_clip[1])
                 start = cpu * 10
                 front_stats[i, start:start + 10] = pl_norm.astype(np.float32)
 
         self._top10_ap_idx = top10_idx_all
         beta_top10 = np.array(beta_top10, dtype=np.float32)
-        #beta normalization
+        inter_beta_top10 = np.array(inter_beta_top10, dtype=np.float32)
         beta_db = 10.0 * np.log10(beta_top10 + 1e-12)
-        beta_db = np.clip(beta_db, -120.0, -80.0)
-        beta_norm = (beta_db + 120.0) / 40.0
+        beta_norm = _minmax_clip(beta_db, self.beta_db_clip[0], self.beta_db_clip[1]).astype(np.float32)
+        inter_beta_db = 10.0 * np.log10(inter_beta_top10 + 1e-12)
+        inter_beta_norm = _minmax_clip(
+            inter_beta_db, self.inter_beta_db_clip[0], self.inter_beta_db_clip[1]
+        ).astype(np.float32)
         cluster_norm = (self.last_cluster_size / 10.0).reshape(self.M_sim, 1).astype(np.float32)
         delay_norm = (self._segment_avg_delay / self.max_delay).reshape(self.M_sim, 1)
         uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
@@ -451,6 +466,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         obs = np.concatenate(
             [
                 beta_norm,
+                inter_beta_norm,
                 cluster_norm,
                 delay_norm,
                 uplink_norm,

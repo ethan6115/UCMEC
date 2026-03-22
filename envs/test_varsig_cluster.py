@@ -74,7 +74,7 @@ def run_one_seed(seed, varsig, p_max, cluster_size):
     env = MA_UCMEC_dyna_noncoop(seed=seed)
     env.varsig = varsig
     env.P_max  = p_max
-    env.noise_access = env.noise_access
+    env.noise_access = env.noise_access*1000
     env.reset()
 
     # 跑一個 step 讓 beta、distance_matrix 更新

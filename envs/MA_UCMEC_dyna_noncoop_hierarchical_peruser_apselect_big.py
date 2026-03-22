@@ -814,15 +814,17 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # print("Front Delay:", front_delay)
         # print("Edge Processing Delay:", actual_process_delay)
         # print("Offloading Delay:", front_delay + uplink_delay + actual_process_delay)
-        total_delay = np.zeros([self.M_sim, 1])
+        total_delay_raw = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            total_delay[i, 0] = np.maximum(local_delay[i, 0],
-                                           front_delay[i, 0] + uplink_delay[i, 0] + actual_process_delay[i, 0])
+            total_delay_raw[i, 0] = np.maximum(
+                local_delay[i, 0],
+                front_delay[i, 0] + uplink_delay[i, 0] + actual_process_delay[i, 0],
+            )
         max_delay = 1.0  # 超過 1 秒視為「同樣很爛」，避免 reward 爆
-        total_delay = np.minimum(total_delay, max_delay)
+        total_delay_clip = np.minimum(total_delay_raw, max_delay)
 
         # update per-user segment averages for high-level observation
-        segment_delay = total_delay[:self.M_sim, 0]
+        segment_delay = total_delay_clip[:self.M_sim, 0]
         segment_uplink = uplink_delay[:self.M_sim, 0]
         segment_front = front_delay[:self.M_sim, 0]
         self._segment_delay_sum += segment_delay.astype(np.float32)
@@ -834,7 +836,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self._segment_avg_uplink = self._segment_uplink_sum / count
         self._segment_avg_front = self._segment_front_sum / count
         offload_mask = (omega_current[:self.M_sim] != 0)
-        success_mask = (total_delay[:self.M_sim, 0] <= self.tau_c) & offload_mask
+        success_mask = (total_delay_clip[:self.M_sim, 0] <= self.tau_c) & offload_mask
         self._segment_offload_count += offload_mask.astype(np.float32)
         self._segment_offload_success_count += success_mask.astype(np.float32)
         den = np.maximum(self._segment_offload_count, 1.0)
@@ -848,11 +850,11 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            reward[i, 0] = -0.9 * total_delay[i, 0] + 0.1 * (self.tau_c - total_delay[i, 0])  #原來的reward
+            reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
         
         # === 每個 time step 的統計量 (之後會塞進 info) ===
         # Average Total Delay (所有 user)
-        avg_total_delay_ms = float(np.mean(total_delay) * 1000.0)
+        avg_total_delay_ms = float(np.mean(total_delay_raw) * 1000.0)
 
         # Local user：omega_current == 0
         local_mask = (omega_current == 0)
@@ -884,7 +886,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         '''
         # 用DSR做reward試試
         # Interval-level high reward: accumulate per-step delays, compute once at interval end.
-        D = total_delay[:self.M_sim, 0]
+        D = total_delay_clip[:self.M_sim, 0]
         self._interval_delays.extend(D.tolist())
         self.high_reward_step = 0.0
         
@@ -927,7 +929,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         sub_agent_reward = []
         sub_agent_done = []
         sub_agent_info = []
-        self.delay_last = total_delay
+        self.delay_last = total_delay_raw
+        self.delay_last_clip = total_delay_clip
         self.omega_last = omega_current
         self.p_last = p_current
         self.p_idx_last = np.asarray(p_current_idx_record, dtype=np.int32)
@@ -946,7 +949,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             self.Task_density[0, i],
             self.omega_last[i],
             self.p_last[i],
-            self.delay_last[i, 0],
+            self.delay_last_clip[i, 0],
             self.current_cluster_size[i]
             ])
             norm_obs = raw_obs / self.norm_factor # normalize

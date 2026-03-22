@@ -32,7 +32,7 @@ class HighContextEncoder(nn.Module):
         self.attn = nn.MultiheadAttention(
             embed_dim=self.hidden_size, num_heads=num_heads, batch_first=True
         )
-        self.attn_norm = nn.LayerNorm(self.hidden_size)    #先試沒有self attention的版本
+        self.attn_norm = nn.LayerNorm(self.hidden_size)    #self attention的版本
         self.pool_score = nn.Linear(self.hidden_size, 1)
 
     def forward(self, x):
@@ -43,7 +43,7 @@ class HighContextEncoder(nn.Module):
         x = self.embed(x)
         x = x.reshape(batch_size, set_size, -1)
 
-        attn_out, _ = self.attn(x, x, x, need_weights=False)   #先試沒有self attention的版本
+        attn_out, _ = self.attn(x, x, x, need_weights=False)   #self attention的版本
         h_ctx = self.attn_norm(x + attn_out)  
         #h_ctx = x
         scores = self.pool_score(h_ctx).squeeze(-1)

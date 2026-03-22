@@ -8,7 +8,6 @@ import cvxpy as cp
 
 class MA_UCMEC_dyna_noncoop(object):
     def __init__(self, render: bool = False, seed=None):
-        
         # Initialization
         self.is_mobile = True
         gym.logger.set_level(40)
@@ -121,7 +120,7 @@ class MA_UCMEC_dyna_noncoop(object):
         # fronthaul channel
         # front_chan = np.zeros([N, K])
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  2e9
-        self.epsilon = 0.003  # blockage density
+        self.epsilon = 6e-4  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links

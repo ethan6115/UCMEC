@@ -39,9 +39,9 @@ def make_env(seed):
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\noncoop_rnn\IPPO_cluster5_oldobs\models/actor_999.pt"
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter\models/actor_999.pt"
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter_edge\models/actor_999.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_randcluster_meter_edge\models/actor_999.pt"
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\randcluster\models/actor_999.pt"
 
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect_small\rmappo\noncoop_rnn\IPPO_randcluster_meter_edge\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect_small\rmappo\noncoop_rnn\IPPO_randcluster_meter_edge\models/actor_999.pt"
 
 #peruser
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select/models/actor_999.pt"
@@ -52,29 +52,17 @@ MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect_sma
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA/models/actor_high.pt"
 
 #peruser_perreward
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward2/models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward/models/actor_999.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward/models/actor_high.pt"
+
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect_small\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect_small\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward/models/actor_high.pt"
+
 
 #test
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_config_test\run6/models/actor_99.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_config_test\run6/models/actor_high.pt"
 
-#alluser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\oldobs\hierarchical_IPPO_alluser_front_attn/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\oldobs\hierarchical_IPPO_alluser_front_attn/models/actor_high.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\smallEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_interval20_clusterobs/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\smallEnv\MyEnv\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_alluser_interval20_clusterobs/models/actor_high.pt"
-
-#MAPPO
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\coop_rnn\MAPPO_cluster5_newobs\models/actor_999.pt"
-
-#MAPPO peruser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_coop_rnn\hierarchical_MAPPO_peruser_clusterobs/models/actor_high.pt"
-
-#fixlow peruser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_fixlow\hierarchical_fixIPPO_peruser_ratio/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\MyEnv\rmappo\hierarchical_fixlow\hierarchical_fixIPPO_peruser_ratio/models/actor_high.pt"
 
 # 匯入必要的模組
 try:
@@ -83,7 +71,7 @@ try:
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect_big import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
@@ -174,6 +162,9 @@ def evaluate(model_path):
         "front_delay_ms_max": [],
         "front_delay_ms_p95": [],
         "avg_front_delay_ms": [],
+        "avg_front_rate_Mbps": [],
+        "front_rate_Mbps_max": [],
+        "front_rate_Mbps_p95": [],
         "avg_actual_process_delay_ms": [],
         "avg_uplink_rate_Mbps": [],
         "avg_offloading_users": [],
@@ -189,6 +180,8 @@ def evaluate(model_path):
         "cpu_select_entropy": [],
         "avg_cpu_used_per_step": [],
     }
+    if USE_HIERARCHICAL and PER_USER:
+        seed_results["high_action_one_ratio"] = []
     if USE_PIVOTAL_STATS:
         seed_results.update({
             "pivotal_uplink": [],
@@ -215,6 +208,9 @@ def evaluate(model_path):
         allsum_front_delay_max = 0.0
         allsum_front_delay_p95 = 0.0
         allsum_avg_front_delay = 0.0
+        allsum_avg_front_rate = 0.0
+        allsum_front_rate_max = 0.0
+        allsum_front_rate_p95 = 0.0
         allsum_avg_actual_process_delay = 0.0
         allsum_avg_uplink_rate = 0.0
         allsum_num_offloading_users = 0.0
@@ -232,6 +228,8 @@ def evaluate(model_path):
         allsum_offload = 0
         allsum_cpu_used_steps = 0.0
         allsum_cpu_used_count = 0
+        allsum_high_action_one_counts = None
+        allsum_high_action_total_bits = 0
         pivotal_off_count = 0
         pivotal_viol_count = 0
         pivotal_u_only_count = 0
@@ -259,6 +257,9 @@ def evaluate(model_path):
             sum_front_delay_max = 0.0
             sum_front_delay_p95 = 0.0
             sum_avg_front_delay = 0.0
+            sum_avg_front_rate = 0.0
+            sum_front_rate_max = 0.0
+            sum_front_rate_p95 = 0.0
             sum_avg_actual_process_delay = 0.0
             sum_avg_uplink_rate = 0.0
             sum_num_offloading_users = 0.0
@@ -287,6 +288,8 @@ def evaluate(model_path):
             interval_pivotal_either_count = 0
             interval_pivotal_need_both_count = 0
             interval_pivotal_other_count = 0
+            sum_high_action_one_counts = None
+            sum_high_action_total_bits = 0
 
             dones = [False] * env.n_agents
 
@@ -324,6 +327,15 @@ def evaluate(model_path):
                         high_action = high_action.cpu().numpy().astype(int).squeeze(0)
                     else:
                         high_action = int(high_action.cpu().numpy().flatten()[0])
+                    if USE_HIERARCHICAL and PER_USER:
+                        high_action_np = np.asarray(high_action, dtype=np.int32)
+                        if high_action_np.ndim == 2:
+                            if sum_high_action_one_counts is None:
+                                sum_high_action_one_counts = np.zeros(
+                                    high_action_np.shape[1], dtype=np.float64
+                                )
+                            sum_high_action_one_counts += high_action_np.sum(axis=0)
+                            sum_high_action_total_bits += int(high_action_np.shape[0])
 
                     # ===== DEBUG_HIGH_ACTION_PROBS BEGIN (safe to delete this whole block later) =====
                     if USE_HIERARCHICAL and PER_USER and DEBUG_HIGH_ACTION_PROBS and hasattr(high_actor, "encoder"):
@@ -515,9 +527,20 @@ def evaluate(model_path):
                             if front_delay is not None and omega is not None:
                                 offload_mask = omega != 0
                                 if np.any(offload_mask):
-                                    front_delay_ms = front_delay[offload_mask, 0] * 1000.0
+                                    front_delay_s = front_delay[offload_mask, 0]
+                                    front_delay_ms = front_delay_s * 1000.0
                                     sum_front_delay_max += float(np.max(front_delay_ms))
                                     sum_front_delay_p95 += float(np.percentile(front_delay_ms, 95))
+                                    task = env.Task_size[0, :env.M_sim]
+                                    task_off = task[offload_mask]
+                                    front_rate_mbps = np.where(
+                                        front_delay_s > 0,
+                                        (task_off / np.maximum(front_delay_s, 1e-12)) / 1e6,
+                                        0.0,
+                                    )
+                                    sum_avg_front_rate += float(np.mean(front_rate_mbps))
+                                    sum_front_rate_max += float(np.max(front_rate_mbps))
+                                    sum_front_rate_p95 += float(np.percentile(front_rate_mbps, 95))
                         metric_steps += 1
                         # Per-agent delay probability (all agents vs offloading only).
                         if hasattr(env, "delay_last") and hasattr(env, "omega_last"):
@@ -589,6 +612,9 @@ def evaluate(model_path):
                 allsum_front_delay_max += sum_front_delay_max / metric_steps
                 allsum_front_delay_p95 += sum_front_delay_p95 / metric_steps
                 allsum_avg_front_delay += sum_avg_front_delay / metric_steps
+                allsum_avg_front_rate += sum_avg_front_rate / metric_steps
+                allsum_front_rate_max += sum_front_rate_max / metric_steps
+                allsum_front_rate_p95 += sum_front_rate_p95 / metric_steps
                 allsum_avg_actual_process_delay += sum_avg_actual_process_delay / metric_steps
                 allsum_avg_uplink_rate += sum_avg_uplink_rate / metric_steps
                 allsum_num_offloading_users += sum_num_offloading_users / metric_steps
@@ -613,6 +639,11 @@ def evaluate(model_path):
             allsum_offload += offload_counts
             allsum_cpu_used_steps += cpu_used_sum
             allsum_cpu_used_count += cpu_used_steps
+            if USE_HIERARCHICAL and PER_USER and sum_high_action_one_counts is not None:
+                if allsum_high_action_one_counts is None:
+                    allsum_high_action_one_counts = np.zeros_like(sum_high_action_one_counts)
+                allsum_high_action_one_counts += sum_high_action_one_counts
+                allsum_high_action_total_bits += sum_high_action_total_bits
             if USE_HIERARCHICAL and attn_max_list:
                 attn_max_arr = np.array(attn_max_list, dtype=np.float32)
                 attn_ent_arr = np.array(attn_entropy_list, dtype=np.float32)
@@ -633,6 +664,9 @@ def evaluate(model_path):
         seed_results["front_delay_ms_max"].append(allsum_front_delay_max / num_episodes)
         seed_results["front_delay_ms_p95"].append(allsum_front_delay_p95 / num_episodes)
         seed_results["avg_front_delay_ms"].append(allsum_avg_front_delay / num_episodes)
+        seed_results["avg_front_rate_Mbps"].append(allsum_avg_front_rate / num_episodes)
+        seed_results["front_rate_Mbps_max"].append(allsum_front_rate_max / num_episodes)
+        seed_results["front_rate_Mbps_p95"].append(allsum_front_rate_p95 / num_episodes)
         seed_results["avg_actual_process_delay_ms"].append(allsum_avg_actual_process_delay / num_episodes)
         seed_results["avg_uplink_rate_Mbps"].append(allsum_avg_uplink_rate / num_episodes)
         seed_results["avg_offloading_users"].append(allsum_num_offloading_users / num_episodes)
@@ -669,6 +703,19 @@ def evaluate(model_path):
             seed_results["avg_cpu_used_per_step"].append(allsum_cpu_used_steps / allsum_cpu_used_count)
         else:
             seed_results["avg_cpu_used_per_step"].append(0.0)
+        if USE_HIERARCHICAL and PER_USER:
+            if allsum_high_action_one_counts is not None and allsum_high_action_total_bits > 0:
+                seed_results["high_action_one_ratio"].append(
+                    allsum_high_action_one_counts / float(allsum_high_action_total_bits)
+                )
+            else:
+                n_bits = 10
+                if hasattr(env, "high_action_space") and hasattr(env.high_action_space, "shape"):
+                    try:
+                        n_bits = int(env.high_action_space.shape[-1])
+                    except Exception:
+                        n_bits = 10
+                seed_results["high_action_one_ratio"].append(np.zeros(n_bits, dtype=np.float64))
         if USE_PIVOTAL_STATS:
             piv_den = max(1, pivotal_viol_count)
             seed_results["pivotal_uplink"].append(pivotal_u_count / piv_den)
@@ -715,6 +762,15 @@ def evaluate(model_path):
             print("  cpu_select_ratio (cpu1..K):")
             for i in range(mean.size):
                 print(f"    cpu{i + 1}: {mean[i]:.4f} +/- {std[i]:.4f}")
+            continue
+        if key == "high_action_one_ratio":
+            vals = np.stack(vals, axis=0)
+            mean = vals.mean(axis=0)
+            std = vals.std(axis=0)
+            print("  high_action_one_ratio (candidate bit=1 ratio):")
+            print("   ", np.array2string(mean, precision=3, separator=" "))
+            print("  high_action_one_ratio_std:")
+            print("   ", np.array2string(std, precision=3, separator=" "))
             continue
         vals = np.array(vals, dtype=np.float32)
         print(f"  {key}: {vals.mean():.4f} ? {vals.std():.4f}")
