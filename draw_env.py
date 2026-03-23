@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
-#from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
-from envs.MA_UCMEC_dyna_noncoop_beta_probe import MA_UCMEC_dyna_noncoop_beta_probe as MA_UCMEC_dyna_noncoop
+from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop
+#from envs.MA_UCMEC_dyna_noncoop_big_3_2 import MA_UCMEC_dyna_noncoop
+#from envs.MA_UCMEC_dyna_noncoop_beta_probe import MA_UCMEC_dyna_noncoop_beta_probe as MA_UCMEC_dyna_noncoop
 
 
 env = MA_UCMEC_dyna_noncoop(seed=1)

@@ -659,6 +659,7 @@ class MA_UCMEC_dyna_noncoop(object):
                 else:
                     front_delay[i, 0] = 0.0
 
+        #front_delay = np.minimum(front_delay, self.max_delay)  # clip，避免極端值爆掉
         # store front delay for evaluation
         self.front_delay_last = front_delay
 

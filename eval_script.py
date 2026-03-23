@@ -25,7 +25,10 @@ SEEDS = [18, 62, 53, 14, 58,
          153, 26, 59, 365, 84,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
-#SEEDS = [1, 1001, 2001, 3001, 4001, 5001, 6001, 7001, 8001, 9001]
+
+#SEEDS = [58, 71, 11, 198, 365, 64, 37, 29, 18, 735] #win
+#SEEDS = [17, 3, 53, 99, 14, 26, 189, 153, 150, 56] #lost
+
 #SEEDS = [3]
 
 def make_env(seed):
@@ -37,10 +40,11 @@ def make_env(seed):
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 #IPPO
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_randcluster\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster2\models/actor_999.pt"
 
 #peruser
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hierarchical_peruser_hotspot/models/actor_999.pt"
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hierarchical_peruser_hotspot/models/actor_high.pt"
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser/models/actor_999.pt"
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
