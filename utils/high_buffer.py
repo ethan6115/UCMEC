@@ -39,7 +39,7 @@ class HighReplayBuffer(object):
         self.returns = np.zeros_like(self.value_preds)
 
         self.actions = np.zeros(
-            (self.episode_length, self.n_rollout_threads, obs_shape[0], 10), dtype=np.int64
+            (self.episode_length, self.n_rollout_threads, obs_shape[0], 1), dtype=np.int64
         )
         self.action_log_probs = np.zeros(
             (self.episode_length, self.n_rollout_threads, obs_shape[0], 1), dtype=np.float32

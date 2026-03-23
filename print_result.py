@@ -15,8 +15,8 @@ mat_paths = [
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_clsuter5_meter_edge\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\run1\reward.mat',
 
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\IPPO_randcluster_meter_edge\reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\noncoop_rnn\randcluster\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_randcluster\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\run1\reward.mat',
 
     #hierarchical peruser
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select\reward.mat', 
@@ -28,8 +28,9 @@ mat_paths = [
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\hierarchical_IPPO_select_newma_rewardA\high_reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\run1\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn\run1\high_reward.mat',
+
     #perreward
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward\reward.mat', 
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hierarchical_peruser_hotspot\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\hierarchical_IPPO_select_perreward\high_reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\run1\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_noncoop_rnn_perreward\run1\high_reward.mat',

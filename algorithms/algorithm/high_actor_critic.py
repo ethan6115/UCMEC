@@ -21,7 +21,8 @@ class HighActor(nn.Module):
         self.tpdv = dict(dtype=torch.float32, device=device)
 
         obs_dim = obs_space.shape[-1]
-        if action_space.__class__.__name__ == "MultiBinary":
+        self._is_multibinary = action_space.__class__.__name__ == "MultiBinary"
+        if self._is_multibinary:
             # MultiBinary can be defined with a tuple shape, e.g. (M_sim, 10).
             self.action_dim = int(action_space.shape[-1])
         elif action_space.__class__.__name__ == "MultiDiscrete":
@@ -64,14 +65,23 @@ class HighActor(nn.Module):
             avail = check(available_actions).to(**self.tpdv)
             logits = logits.masked_fill(avail <= 0.0, -1e10)
 
-        dist = torch.distributions.Bernoulli(logits=logits)
-        if deterministic:
-            actions = (dist.probs >= 0.5).to(logits.dtype)
+        if self._is_multibinary:
+            dist = torch.distributions.Bernoulli(logits=logits)
+            if deterministic:
+                actions = (dist.probs >= 0.5).to(logits.dtype)
+            else:
+                actions = dist.sample()
+            # Keep per-user log-prob (sum over bits only). User dimension is handled
+            # later by the high-level replay buffer / PPO sample expansion.
+            action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
         else:
-            actions = dist.sample()
-        # Keep per-user log-prob (sum over bits only). User dimension is handled
-        # later by the high-level replay buffer / PPO sample expansion.
-        action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
+            dist = torch.distributions.Categorical(logits=logits)
+            if deterministic:
+                actions = torch.argmax(logits, dim=-1)
+            else:
+                actions = dist.sample()
+            action_log_probs = dist.log_prob(actions).unsqueeze(-1)
+            actions = actions.unsqueeze(-1)
         return actions, action_log_probs, rnn_states
 
     def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
@@ -93,12 +103,18 @@ class HighActor(nn.Module):
             avail = check(available_actions).to(**self.tpdv)
             logits = logits.masked_fill(avail <= 0.0, -1e10)
 
-        dist = torch.distributions.Bernoulli(logits=logits)
-        # Keep per-user log-prob (sum over bits only).
-        action_log_probs = dist.log_prob(action).sum(-1, keepdim=True)
-        # Per-user entropy (sum over bits); reduce to scalar with masks below to
-        # preserve compatibility with the shared PPO trainer interface.
-        dist_entropy = dist.entropy().sum(-1, keepdim=True)
+        if self._is_multibinary:
+            dist = torch.distributions.Bernoulli(logits=logits)
+            # Keep per-user log-prob (sum over bits only).
+            action_log_probs = dist.log_prob(action).sum(-1, keepdim=True)
+            # Per-user entropy (sum over bits); reduce to scalar with masks below to
+            # preserve compatibility with the shared PPO trainer interface.
+            dist_entropy = dist.entropy().sum(-1, keepdim=True)
+        else:
+            action = action.squeeze(-1).long()
+            dist = torch.distributions.Categorical(logits=logits)
+            action_log_probs = dist.log_prob(action).unsqueeze(-1)
+            dist_entropy = dist.entropy().unsqueeze(-1)
         if active_masks is not None:
             active_masks = check(active_masks).to(**self.tpdv)
             if active_masks.dim() == 2:

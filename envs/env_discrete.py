@@ -26,7 +26,9 @@ from envs.MA_MPO_dyna_coop import MA_MPO_dyna_coop
 from envs.MA_MPO_dyna_noncoop import MA_MPO_dyna_noncoop
 #切換hierarchical版本
 from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect import MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical_peruser
+from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot import (
+    MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical_peruser,
+)
 from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_apselect_peruser_reward import (
     MA_UCMEC_dyna_noncoop_hierarchical_peruser_peruser_reward as MA_UCMEC_dyna_noncoop_hierarchical_peruser_peruser_reward,
 )
@@ -50,10 +52,9 @@ class DiscreteActionEnv(object):
         seed = getattr(all_args, "seed", None) if all_args is not None else None
         if use_hierarchical:
             if use_high_peruser:
-                if use_high_peruser_credit:
-                    self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser_peruser_reward(seed=seed)
-                else:
-                    self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(seed=seed)
+                # Hotspot per-user env already exposes interval reward in per-user
+                # form, so keep a single env path regardless of credit setting.
+                self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(seed=seed)
             else:
                 self.env = MA_UCMEC_dyna_noncoop_hierarchical(seed=seed)
         else:

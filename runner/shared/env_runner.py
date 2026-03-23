@@ -80,7 +80,14 @@ class EnvRunner(Runner):
                     if self.use_high_peruser:
                         space_name = getattr(self.high_action_space, "__class__", None).__name__
                         if space_name == "MultiDiscrete":
-                            action_id = action_h.astype(int)
+                            # Expected after categorical refactor: [n_threads, M_sim, 1].
+                            # Transitional compatibility: also accept [n_threads, M_sim, 10].
+                            if action_h.ndim == 3 and action_h.shape[-1] == 1:
+                                action_id = action_h.squeeze(-1).astype(int)
+                            elif action_h.ndim == 3:
+                                action_id = np.argmax(action_h, axis=-1).astype(int)
+                            else:
+                                action_id = action_h.astype(int)
                         elif space_name == "MultiBinary":
                             action_id = action_h.astype(int)
                         else:
@@ -253,12 +260,14 @@ class EnvRunner(Runner):
                                 sum_reward[:, None, :],
                                 masks_h
                             )
+                        # Log/save high-level reward on transition times only.
+                        # This matches the reward actually inserted into high_buffer.
+                        if sum_reward.ndim == 3:
+                            high_episode_reward_sum += np.mean(sum_reward, axis=1)
+                        else:
+                            high_episode_reward_sum += sum_reward
+                        high_episode_reward_count += 1
                         self._high_pending = False
-                    if step_reward.ndim == 3:
-                        high_episode_reward_sum += np.mean(step_reward, axis=1)
-                    else:
-                        high_episode_reward_sum += step_reward
-                    high_episode_reward_count += 1
 
 
             # compute return and update network
