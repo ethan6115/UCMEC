@@ -171,9 +171,9 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # Tuned normalization ranges (300x300 setting, percentile-based).
         self.beta_db_clip = (-121.0, -95.5)
         self.front_db_clip = (-61.0, -29.0)
-        # High-level action: per-user cluster-size index in [0, 9] (k = index + 1).
-        self.high_action_space = spaces.MultiDiscrete([10] * self.M_sim)
-        self.high_action_dim = 10
+        # High-level action: per-user cluster-size index in [0, 4] (k = index + 1).
+        self.high_action_dim = len(self.cluster_size_candidates)
+        self.high_action_space = spaces.MultiDiscrete([self.high_action_dim] * self.M_sim)
         self.high_obs_dim = 52
         self.high_observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.M_sim, self.high_obs_dim), dtype=np.float32
@@ -276,7 +276,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         if self._segment_delay_count <= 0:
             return np.zeros((self.M_sim,), dtype=np.float32)
         per_user_avg = self._segment_delay_sum / max(1, self._segment_delay_count)
-        reward = -(per_user_avg / max(self.max_delay, 1e-6)).astype(np.float32)
+        reward = -(per_user_avg).astype(np.float32)
         self._segment_delay_sum[:] = 0.0
         self._segment_delay_count = 0
         self._interval_delays = []
@@ -335,10 +335,10 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self._interval_delays = []
 
     def set_high_action(self, action_id):
-        # Accept per-user cluster-size indices in [0, 9].
+        # Accept per-user cluster-size indices in [0, high_action_dim-1].
         if isinstance(action_id, (list, np.ndarray)):
             action_id = np.asarray(action_id, dtype=np.int32)
-            if action_id.ndim == 2 and action_id.shape[1] == 10:
+            if action_id.ndim == 2 and action_id.shape[1] == self.high_action_dim:
                 # Transitional compatibility before high actor switches to Categorical.
                 action_id = np.argmax(action_id, axis=1).astype(np.int32)
             elif action_id.ndim == 2 and action_id.shape[1] == 1:
@@ -350,7 +350,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         if action_id.size == 1:
             action_id = np.full((self.M_sim,), int(action_id.item()), dtype=np.int32)
         action_id = action_id[: self.M_sim]
-        action_id = np.clip(action_id, 0, 9)
+        action_id = np.clip(action_id, 0, self.high_action_dim - 1)
         self._pending_high_action = action_id
 
     def apply_high_action(self, action_id=None):
@@ -361,7 +361,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         if self._top10_ap_idx is None:
             return
         action_id = np.asarray(action_id, dtype=np.int32)
-        if action_id.ndim == 2 and action_id.shape[1] == 10:
+        if action_id.ndim == 2 and action_id.shape[1] == self.high_action_dim:
             action_id = np.argmax(action_id, axis=1).astype(np.int32)
         elif action_id.ndim == 2 and action_id.shape[1] == 1:
             action_id = action_id.squeeze(-1)
@@ -370,7 +370,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         if action_id.size == 1:
             action_id = np.full((self.M_sim,), int(action_id.item()), dtype=np.int32)
         action_id = action_id[: self.M_sim]
-        action_id = np.clip(action_id, 0, 9)
+        action_id = np.clip(action_id, 0, self.high_action_dim - 1)
         cluster_matrix = np.zeros((self.M_sim, self.N_sim), dtype=int)
         for i in range(self.M_sim):
             k = int(action_id[i]) + 1
@@ -475,7 +475,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         beta_top10 = np.array(beta_top10, dtype=np.float32)
         beta_db = 10.0 * np.log10(beta_top10 + 1e-12)
         beta_norm = _minmax_clip(beta_db, self.beta_db_clip[0], self.beta_db_clip[1]).astype(np.float32)
-        cluster_norm = (self.last_cluster_size / 10.0).reshape(self.M_sim, 1).astype(np.float32)
+        cluster_norm = (self.last_cluster_size / float(self.high_action_dim)).reshape(self.M_sim, 1).astype(np.float32)
         delay_norm = (self._segment_avg_delay / self.max_delay).reshape(self.M_sim, 1)
         uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
         front_norm = (self._segment_avg_front / self.max_delay).reshape(self.M_sim, 1)

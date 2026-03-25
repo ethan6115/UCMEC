@@ -1,7 +1,7 @@
 import numpy as np
 from gym import spaces
 
-from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop
+from envs.MA_UCMEC_dyna_noncoop_big_3_2 import MA_UCMEC_dyna_noncoop
 
 
 class MA_UCMEC_dyna_noncoop_cluster_rand(MA_UCMEC_dyna_noncoop):
@@ -16,8 +16,8 @@ class MA_UCMEC_dyna_noncoop_cluster_rand(MA_UCMEC_dyna_noncoop):
 
     def __init__(self, render=False, seed=None):
         super().__init__(render=render, seed=seed)
-        self.cluster_k_min = 1
-        self.cluster_k_max = 10
+        self.cluster_k_min = 2
+        self.cluster_k_max = 2
         self.use_hybrid_cluster2_los = False
         self.hybrid_fixed_cluster_size = 2
         self.hybrid_obs_cluster_size = 1

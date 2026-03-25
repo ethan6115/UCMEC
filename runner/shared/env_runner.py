@@ -39,9 +39,51 @@ class EnvRunner(Runner):
         reward_list = np.zeros([episodes, 1])
         high_reward_list = np.zeros([episodes, 1]) if self.use_hierarchical else None
         for episode in range(episodes):
+            # Optional staged training schedule in one run:
+            #   freeze_low_then_unfreeze: Stage-A freeze low, Stage-C unfreeze low.
+            #   freeze_high_then_unfreeze: Stage-A freeze high, Stage-C unfreeze high.
+            if self.use_hierarchical and self.stage_mode != "none":
+                if self.stage_mode == "freeze_low_then_unfreeze":
+                    if episode == 0 and self.stage_a_episodes > 0:
+                        print(f"[stage] episode={episode}: freeze LOW policy for {self.stage_a_episodes} episodes")
+                        self.set_freeze_low(True)
+                    if episode == self.stage_a_episodes:
+                        new_low_lr = self.stage_c_low_lr if self.stage_c_low_lr is not None else self.all_args.lr
+                        new_low_critic_lr = (
+                            self.stage_c_low_critic_lr
+                            if self.stage_c_low_critic_lr is not None
+                            else self.all_args.critic_lr
+                        )
+                        print(
+                            f"[stage] episode={episode}: unfreeze LOW policy "
+                            f"(actor_lr={new_low_lr}, critic_lr={new_low_critic_lr})"
+                        )
+                        self.set_freeze_low(False, actor_lr=new_low_lr, critic_lr=new_low_critic_lr)
+                elif self.stage_mode == "freeze_high_then_unfreeze":
+                    if episode == 0 and self.stage_a_episodes > 0:
+                        print(f"[stage] episode={episode}: freeze HIGH policy for {self.stage_a_episodes} episodes")
+                        self.set_freeze_high(True)
+                    if episode == self.stage_a_episodes:
+                        new_high_lr = (
+                            self.stage_c_high_lr
+                            if self.stage_c_high_lr is not None
+                            else self.all_args.high_lr
+                        )
+                        new_high_critic_lr = (
+                            self.stage_c_high_critic_lr
+                            if self.stage_c_high_critic_lr is not None
+                            else self.all_args.high_critic_lr
+                        )
+                        print(
+                            f"[stage] episode={episode}: unfreeze HIGH policy "
+                            f"(actor_lr={new_high_lr}, critic_lr={new_high_critic_lr})"
+                        )
+                        self.set_freeze_high(False, actor_lr=new_high_lr, critic_lr=new_high_critic_lr)
 
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
+            if self.use_hierarchical and self.use_high_linear_lr_decay:
+                self.high_trainer.policy.lr_decay(episode, episodes)
 
             if self.use_hierarchical:
                 high_episode_reward_sum = np.zeros((self.n_rollout_threads, 1), dtype=np.float32)

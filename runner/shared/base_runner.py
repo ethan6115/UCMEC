@@ -38,6 +38,7 @@ class Runner(object):
         self.n_eval_rollout_threads = self.all_args.n_eval_rollout_threads
         self.n_render_rollout_threads = self.all_args.n_render_rollout_threads
         self.use_linear_lr_decay = self.all_args.use_linear_lr_decay
+        self.use_high_linear_lr_decay = getattr(self.all_args, "use_high_linear_lr_decay", False)
         self.hidden_size = self.all_args.hidden_size
         self.use_render = self.all_args.use_render
         self.recurrent_N = self.all_args.recurrent_N
@@ -54,6 +55,22 @@ class Runner(object):
         self.high_model_dir = getattr(self.all_args, "high_model_dir", None)
         self.freeze_low = getattr(self.all_args, "freeze_low", False)
         self.freeze_high = getattr(self.all_args, "freeze_high", False)
+        self.stage_bc = getattr(self.all_args, "stage_bc", False)
+        self.stage_b_episodes = int(getattr(self.all_args, "stage_b_episodes", 0))
+        self.stage_c_low_lr = getattr(self.all_args, "stage_c_low_lr", None)
+        self.stage_c_low_critic_lr = getattr(self.all_args, "stage_c_low_critic_lr", None)
+        self.stage_mode = getattr(self.all_args, "stage_mode", "none")
+        self.stage_a_episodes = int(getattr(self.all_args, "stage_a_episodes", 0))
+        self.stage_c_high_lr = getattr(self.all_args, "stage_c_high_lr", None)
+        self.stage_c_high_critic_lr = getattr(self.all_args, "stage_c_high_critic_lr", None)
+        # Backward compatibility: old stage_bc flag means freeze low then unfreeze.
+        if self.stage_mode == "none" and self.stage_bc:
+            self.stage_mode = "freeze_low_then_unfreeze"
+            if self.stage_a_episodes <= 0:
+                self.stage_a_episodes = self.stage_b_episodes
+        # Keep old args effective even when stage_mode is used and stage_a_episodes is omitted.
+        if self.stage_mode == "freeze_low_then_unfreeze" and self.stage_a_episodes <= 0 and self.stage_b_episodes > 0:
+            self.stage_a_episodes = self.stage_b_episodes
 
         self.run_dir = config["run_dir"]
         self.log_dir = str(self.run_dir / 'logs')
@@ -151,15 +168,9 @@ class Runner(object):
         if self.model_dir is not None or self.low_model_dir is not None or self.high_model_dir is not None:
             self.restore()
         if self.freeze_low:
-            for p in self.policy.actor.parameters():
-                p.requires_grad = False
-            for p in self.policy.critic.parameters():
-                p.requires_grad = False
+            self.set_freeze_low(True)
         if self.use_hierarchical and self.freeze_high:
-            for p in self.high_policy.actor.parameters():
-                p.requires_grad = False
-            for p in self.high_policy.critic.parameters():
-                p.requires_grad = False
+            self.set_freeze_high(True)
 
     def run(self):
         """Collect training data, perform training updates, and evaluate policy."""
@@ -199,6 +210,42 @@ class Runner(object):
         self.buffer.after_update()
         return train_infos
 
+    def set_freeze_low(self, freeze, actor_lr=None, critic_lr=None):
+        """Freeze/unfreeze low-level policy and optionally reset optimizer lrs."""
+        self.freeze_low = bool(freeze)
+        for p in self.policy.actor.parameters():
+            p.requires_grad = not self.freeze_low
+        for p in self.policy.critic.parameters():
+            p.requires_grad = not self.freeze_low
+
+        if actor_lr is not None:
+            self.trainer.policy.lr = float(actor_lr)
+            for g in self.trainer.policy.actor_optimizer.param_groups:
+                g["lr"] = float(actor_lr)
+        if critic_lr is not None:
+            self.trainer.policy.critic_lr = float(critic_lr)
+            for g in self.trainer.policy.critic_optimizer.param_groups:
+                g["lr"] = float(critic_lr)
+
+    def set_freeze_high(self, freeze, actor_lr=None, critic_lr=None):
+        """Freeze/unfreeze high-level policy and optionally reset optimizer lrs."""
+        if not self.use_hierarchical:
+            return
+        self.freeze_high = bool(freeze)
+        for p in self.high_policy.actor.parameters():
+            p.requires_grad = not self.freeze_high
+        for p in self.high_policy.critic.parameters():
+            p.requires_grad = not self.freeze_high
+
+        if actor_lr is not None:
+            self.high_trainer.policy.lr = float(actor_lr)
+            for g in self.high_trainer.policy.actor_optimizer.param_groups:
+                g["lr"] = float(actor_lr)
+        if critic_lr is not None:
+            self.high_trainer.policy.critic_lr = float(critic_lr)
+            for g in self.high_trainer.policy.critic_optimizer.param_groups:
+                g["lr"] = float(critic_lr)
+
     def save(self, episode=None, save_high_final=False):
         """Save policy's actor and critic networks."""
         policy_actor = self.trainer.policy.actor
@@ -230,6 +277,13 @@ class Runner(object):
 
     def restore(self):
         """Restore policy's networks from a saved model."""
+        def _first_existing_path(base_dir, names):
+            for name in names:
+                p = os.path.join(str(base_dir), name)
+                if os.path.exists(p):
+                    return p
+            return None
+
         if self.low_model_dir is not None:
             model_dir = self.low_model_dir
         elif self.model_dir is not None:
@@ -238,10 +292,16 @@ class Runner(object):
             model_dir = None
 
         if model_dir is not None:
-            policy_actor_state_dict = torch.load(str(model_dir) + '/actor_999.pt')
+            actor_path = _first_existing_path(model_dir, ["actor_999.pt", "actor.pt"])
+            if actor_path is None:
+                raise FileNotFoundError(f"No low-level actor checkpoint found in {model_dir}")
+            policy_actor_state_dict = torch.load(actor_path, map_location=self.device)
             self.policy.actor.load_state_dict(policy_actor_state_dict)
             if not self.all_args.use_render:
-                policy_critic_state_dict = torch.load(str(model_dir) + '/critic_999.pt')
+                critic_path = _first_existing_path(model_dir, ["critic_999.pt", "critic.pt"])
+                if critic_path is None:
+                    raise FileNotFoundError(f"No low-level critic checkpoint found in {model_dir}")
+                policy_critic_state_dict = torch.load(critic_path, map_location=self.device)
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
 
         if self.use_hierarchical:
@@ -252,10 +312,16 @@ class Runner(object):
             else:
                 high_dir = None
             if high_dir is not None:
-                high_actor = torch.load(str(high_dir) + "/actor_high.pt")
+                high_actor_path = _first_existing_path(high_dir, ["actor_high.pt", "actor_high_999.pt"])
+                if high_actor_path is None:
+                    raise FileNotFoundError(f"No high-level actor checkpoint found in {high_dir}")
+                high_actor = torch.load(high_actor_path, map_location=self.device)
                 self.high_policy.actor.load_state_dict(high_actor)
                 if not self.all_args.use_render:
-                    high_critic = torch.load(str(high_dir) + "/critic_high.pt")
+                    high_critic_path = _first_existing_path(high_dir, ["critic_high.pt", "critic_high_999.pt"])
+                    if high_critic_path is None:
+                        raise FileNotFoundError(f"No high-level critic checkpoint found in {high_dir}")
+                    high_critic = torch.load(high_critic_path, map_location=self.device)
                     self.high_policy.critic.load_state_dict(high_critic)
  
     def log_train(self, train_infos, total_num_steps):

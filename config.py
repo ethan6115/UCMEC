@@ -461,6 +461,61 @@ def get_config():
         default=False,
         help="use a linear schedule on the learning rate",
     )
+    parser.add_argument(
+        "--use_high_linear_lr_decay",
+        action="store_true",
+        default=False,
+        help="use a linear schedule on high-level learning rates",
+    )
+    parser.add_argument(
+        "--stage_bc",
+        action="store_true",
+        default=False,
+        help="run Stage-B (freeze low) then Stage-C (unfreeze low) in one training run",
+    )
+    parser.add_argument(
+        "--stage_b_episodes",
+        type=int,
+        default=0,
+        help="number of episodes for Stage-B before unfreezing low-level policy",
+    )
+    parser.add_argument(
+        "--stage_c_low_lr",
+        type=float,
+        default=None,
+        help="low-level actor lr after entering Stage-C (default: keep current --lr)",
+    )
+    parser.add_argument(
+        "--stage_c_low_critic_lr",
+        type=float,
+        default=None,
+        help="low-level critic lr after entering Stage-C (default: keep current --critic_lr)",
+    )
+    parser.add_argument(
+        "--stage_mode",
+        type=str,
+        default="none",
+        choices=["none", "freeze_low_then_unfreeze", "freeze_high_then_unfreeze"],
+        help="staged training mode: none | freeze_low_then_unfreeze | freeze_high_then_unfreeze",
+    )
+    parser.add_argument(
+        "--stage_a_episodes",
+        type=int,
+        default=0,
+        help="number of episodes for Stage-A before unfreezing the staged level",
+    )
+    parser.add_argument(
+        "--stage_c_high_lr",
+        type=float,
+        default=None,
+        help="high-level actor lr after entering Stage-C (default: keep current --high_lr)",
+    )
+    parser.add_argument(
+        "--stage_c_high_critic_lr",
+        type=float,
+        default=None,
+        help="high-level critic lr after entering Stage-C (default: keep current --high_critic_lr)",
+    )
     # save parameters
     parser.add_argument(
         "--save_interval",

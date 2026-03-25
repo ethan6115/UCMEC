@@ -26,10 +26,8 @@ SEEDS = [18, 62, 53, 14, 58,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
 
-#SEEDS = [58, 71, 11, 198, 365, 64, 37, 29, 18, 735] #win
-#SEEDS = [17, 3, 53, 99, 14, 26, 189, 153, 150, 56] #lost
+#SEEDS = [71, 776, 11, 58, 150, 59, 161, 3, 365, 84] #win
 
-#SEEDS = [3]
 
 def make_env(seed):
     if USE_HIERARCHICAL:
@@ -43,8 +41,11 @@ def make_env(seed):
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster2\models/actor_999.pt"
 
 #peruser
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser/models/actor_999.pt"
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser/models/actor_high.pt"
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_999.pt"
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_high.pt"
+#stageBC
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_999.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
@@ -162,7 +163,9 @@ def evaluate(model_path):
         "avg_cpu_used_per_step": [],
     }
     if USE_HIERARCHICAL and PER_USER:
-        seed_results["high_action_one_ratio"] = []
+        seed_results["high_action_mean_index"] = []
+        seed_results["high_action_mean_cluster_size"] = []
+        seed_results["high_action_cluster_hist"] = []
     if USE_PIVOTAL_STATS:
         seed_results.update({
             "pivotal_uplink": [],
@@ -172,6 +175,10 @@ def evaluate(model_path):
             "pivotal_viol_count": [],
             "offloading_violation_rate": [],
         })
+
+    # accumulators for beta-vs-k diagnostic (filled inside the seed loop)
+    _diag_beta_all = []   # list of 1-D arrays of beta_norm_top1 values
+    _diag_k_all    = []   # list of 1-D arrays of assigned cluster sizes
 
     for seed in SEEDS:
         np.random.seed(seed)
@@ -209,8 +216,9 @@ def evaluate(model_path):
         allsum_offload = 0
         allsum_cpu_used_steps = 0.0
         allsum_cpu_used_count = 0
-        allsum_high_action_one_counts = None
-        allsum_high_action_total_bits = 0
+        allsum_high_action_hist = None
+        allsum_high_action_sum = 0.0
+        allsum_high_action_count = 0
         pivotal_off_count = 0
         pivotal_viol_count = 0
         pivotal_u_only_count = 0
@@ -269,8 +277,9 @@ def evaluate(model_path):
             interval_pivotal_either_count = 0
             interval_pivotal_need_both_count = 0
             interval_pivotal_other_count = 0
-            sum_high_action_one_counts = None
-            sum_high_action_total_bits = 0
+            sum_high_action_hist = None
+            sum_high_action_sum = 0.0
+            sum_high_action_count = 0
 
             dones = [False] * env.n_agents
 
@@ -309,14 +318,25 @@ def evaluate(model_path):
                     else:
                         high_action = int(high_action.cpu().numpy().flatten()[0])
                     if USE_HIERARCHICAL and PER_USER:
-                        high_action_np = np.asarray(high_action, dtype=np.int32)
-                        if high_action_np.ndim == 2:
-                            if sum_high_action_one_counts is None:
-                                sum_high_action_one_counts = np.zeros(
-                                    high_action_np.shape[1], dtype=np.float64
-                                )
-                            sum_high_action_one_counts += high_action_np.sum(axis=0)
-                            sum_high_action_total_bits += int(high_action_np.shape[0])
+                        high_action_np = np.asarray(high_action, dtype=np.int32).reshape(-1)
+                        # MultiDiscrete per-user action: index 0..9 maps to cluster size 1..10.
+                        if hasattr(env, "high_action_space") and hasattr(env.high_action_space, "nvec"):
+                            n_bins = int(env.high_action_space.nvec[0])
+                        else:
+                            n_bins = 10
+                        high_action_np = np.clip(high_action_np, 0, n_bins - 1)
+                        if sum_high_action_hist is None:
+                            sum_high_action_hist = np.zeros(n_bins, dtype=np.float64)
+                        sum_high_action_hist += np.bincount(high_action_np, minlength=n_bins)
+                        sum_high_action_sum += float(np.sum(high_action_np))
+                        sum_high_action_count += int(high_action_np.size)
+
+                        # --- beta vs k correlation diagnostic ---
+                        # global_obs shape: (1, M_sim, 52); beta_norm = dims 0..9, top-1 = dim 0
+                        beta_norm_top1 = global_obs[0, :, 0]   # (M_sim,)
+                        k_assigned     = high_action_np + 1     # index→cluster size
+                        _diag_beta_all.append(beta_norm_top1.copy())
+                        _diag_k_all.append(k_assigned.copy())
 
                     # ===== DEBUG_HIGH_ACTION_PROBS BEGIN (safe to delete this whole block later) =====
                     if USE_HIERARCHICAL and PER_USER and DEBUG_HIGH_ACTION_PROBS and hasattr(high_actor, "encoder"):
@@ -620,11 +640,12 @@ def evaluate(model_path):
             allsum_offload += offload_counts
             allsum_cpu_used_steps += cpu_used_sum
             allsum_cpu_used_count += cpu_used_steps
-            if USE_HIERARCHICAL and PER_USER and sum_high_action_one_counts is not None:
-                if allsum_high_action_one_counts is None:
-                    allsum_high_action_one_counts = np.zeros_like(sum_high_action_one_counts)
-                allsum_high_action_one_counts += sum_high_action_one_counts
-                allsum_high_action_total_bits += sum_high_action_total_bits
+            if USE_HIERARCHICAL and PER_USER and sum_high_action_hist is not None:
+                if allsum_high_action_hist is None:
+                    allsum_high_action_hist = np.zeros_like(sum_high_action_hist)
+                allsum_high_action_hist += sum_high_action_hist
+                allsum_high_action_sum += sum_high_action_sum
+                allsum_high_action_count += sum_high_action_count
             if USE_HIERARCHICAL and attn_max_list:
                 attn_max_arr = np.array(attn_max_list, dtype=np.float32)
                 attn_ent_arr = np.array(attn_entropy_list, dtype=np.float32)
@@ -685,18 +706,22 @@ def evaluate(model_path):
         else:
             seed_results["avg_cpu_used_per_step"].append(0.0)
         if USE_HIERARCHICAL and PER_USER:
-            if allsum_high_action_one_counts is not None and allsum_high_action_total_bits > 0:
-                seed_results["high_action_one_ratio"].append(
-                    allsum_high_action_one_counts / float(allsum_high_action_total_bits)
-                )
+            if allsum_high_action_hist is not None and allsum_high_action_count > 0:
+                hist_ratio = allsum_high_action_hist / float(max(1, allsum_high_action_hist.sum()))
+                mean_idx = allsum_high_action_sum / float(allsum_high_action_count)
+                seed_results["high_action_cluster_hist"].append(hist_ratio)
+                seed_results["high_action_mean_index"].append(mean_idx)
+                seed_results["high_action_mean_cluster_size"].append(mean_idx + 1.0)
             else:
-                n_bits = 10
-                if hasattr(env, "high_action_space") and hasattr(env.high_action_space, "shape"):
+                n_bins = 10
+                if hasattr(env, "high_action_space") and hasattr(env.high_action_space, "nvec"):
                     try:
-                        n_bits = int(env.high_action_space.shape[-1])
+                        n_bins = int(env.high_action_space.nvec[0])
                     except Exception:
-                        n_bits = 10
-                seed_results["high_action_one_ratio"].append(np.zeros(n_bits, dtype=np.float64))
+                        n_bins = 10
+                seed_results["high_action_cluster_hist"].append(np.zeros(n_bins, dtype=np.float64))
+                seed_results["high_action_mean_index"].append(0.0)
+                seed_results["high_action_mean_cluster_size"].append(1.0)
         if USE_PIVOTAL_STATS:
             piv_den = max(1, pivotal_viol_count)
             seed_results["pivotal_uplink"].append(pivotal_u_count / piv_den)
@@ -708,6 +733,18 @@ def evaluate(model_path):
             seed_results["pivotal_viol_count"].append(float(pivotal_viol_count))
             print(f"  offloading_violation_rate: {viol_rate:.4f}")
             print(f"  pivotal_viol_count: {pivotal_viol_count}")
+
+    # ── beta vs k correlation (diagnostic: did high-level learn the mapping?) ──
+    if USE_HIERARCHICAL and PER_USER and _diag_beta_all:
+        beta_flat    = np.concatenate(_diag_beta_all)
+        k_flat       = np.concatenate(_diag_k_all).astype(float)
+        # beta_norm is in [0,1]; convert to dB: clip range was (-121, -95.5)
+        beta_dB_flat = beta_flat * (121.0 - 95.5) - 121.0
+        corr_bk      = np.corrcoef(beta_dB_flat, k_flat)[0, 1]
+        print(f"\n  [Diagnostic] beta vs assigned_k  Pearson corr: {corr_bk:.4f}")
+        print(f"    Oracle (sweep) corr = -0.517")
+        print(f"    If corr ≈ -0.5 → high-level learned the beta→k mapping.")
+        print(f"    If corr ≈  0.0 → high-level ignores channel quality (mapping NOT learned).")
 
     print("Summary over seeds (mean +/- std):")
     for key, vals in seed_results.items():
@@ -744,13 +781,13 @@ def evaluate(model_path):
             for i in range(mean.size):
                 print(f"    cpu{i + 1}: {mean[i]:.4f} +/- {std[i]:.4f}")
             continue
-        if key == "high_action_one_ratio":
+        if key == "high_action_cluster_hist":
             vals = np.stack(vals, axis=0)
             mean = vals.mean(axis=0)
             std = vals.std(axis=0)
-            print("  high_action_one_ratio (candidate bit=1 ratio):")
+            print("  high_action_cluster_hist (cluster size 1..10 ratio):")
             print("   ", np.array2string(mean, precision=3, separator=" "))
-            print("  high_action_one_ratio_std:")
+            print("  high_action_cluster_hist_std:")
             print("   ", np.array2string(std, precision=3, separator=" "))
             continue
         vals = np.array(vals, dtype=np.float32)
