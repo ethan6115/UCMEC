@@ -1,6 +1,8 @@
 import argparse
+import contextlib
 import importlib.util
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 import sys
@@ -13,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-_HOTSPOT_PATH = REPO_ROOT / "envs" / "MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot.py"
+_HOTSPOT_PATH = REPO_ROOT / "envs" / "MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos.py"
 _SPEC = importlib.util.spec_from_file_location("hotspot_env_module", _HOTSPOT_PATH)
 if _SPEC is None or _SPEC.loader is None:
     raise RuntimeError(f"Failed to load hotspot env module from: {_HOTSPOT_PATH}")
@@ -112,13 +114,14 @@ def collect_seed_values(seed: int, episodes: int, slots_per_episode: int) -> Dic
     beta_all: List[np.ndarray] = []
     front_all: List[np.ndarray] = []
 
-    for _ in range(episodes):
-        env.reset()
-        for _ in range(slots_per_episode):
-            env.advance_channel()
-            beta_db, front_db = collect_slot_raw_db(env)
-            beta_all.append(beta_db)
-            front_all.append(front_db)
+    with open(os.devnull, "w") as _devnull, contextlib.redirect_stdout(_devnull):
+        for _ in range(episodes):
+            env.reset()
+            for _ in range(slots_per_episode):
+                env.advance_channel()
+                beta_db, front_db = collect_slot_raw_db(env)
+                beta_all.append(beta_db)
+                front_all.append(front_db)
 
     return {
         "beta_db": np.concatenate(beta_all, axis=0),

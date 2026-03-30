@@ -59,6 +59,23 @@ class EnvRunner(Runner):
                             f"(actor_lr={new_low_lr}, critic_lr={new_low_critic_lr})"
                         )
                         self.set_freeze_low(False, actor_lr=new_low_lr, critic_lr=new_low_critic_lr)
+                        # Also adjust high-level LR for fine-tuning stage.
+                        new_high_lr = (
+                            self.stage_c_high_lr
+                            if self.stage_c_high_lr is not None
+                            else None
+                        )
+                        new_high_critic_lr = (
+                            self.stage_c_high_critic_lr
+                            if self.stage_c_high_critic_lr is not None
+                            else None
+                        )
+                        if new_high_lr is not None or new_high_critic_lr is not None:
+                            print(
+                                f"[stage] episode={episode}: adjust HIGH LR "
+                                f"(actor_lr={new_high_lr}, critic_lr={new_high_critic_lr})"
+                            )
+                            self.set_freeze_high(False, actor_lr=new_high_lr, critic_lr=new_high_critic_lr)
                 elif self.stage_mode == "freeze_high_then_unfreeze":
                     if episode == 0 and self.stage_a_episodes > 0:
                         print(f"[stage] episode={episode}: freeze HIGH policy for {self.stage_a_episodes} episodes")

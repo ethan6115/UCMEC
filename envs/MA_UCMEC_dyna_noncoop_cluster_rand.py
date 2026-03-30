@@ -1,7 +1,7 @@
 import numpy as np
 from gym import spaces
 
-from envs.MA_UCMEC_dyna_noncoop_big_3_2 import MA_UCMEC_dyna_noncoop
+from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop
 
 
 class MA_UCMEC_dyna_noncoop_cluster_rand(MA_UCMEC_dyna_noncoop):
