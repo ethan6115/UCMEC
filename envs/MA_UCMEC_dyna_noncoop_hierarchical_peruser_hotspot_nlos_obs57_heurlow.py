@@ -219,6 +219,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.theta_current = None
         self.last_cluster_size = self.current_cluster_size.copy()
         self.last_selected_ap_mask = np.zeros((self.M_sim, self.candidate_n), dtype=np.float32)
+        self.last_high_action = np.zeros((self.M_sim,), dtype=np.int32)
         self.cpu_front_quality = np.zeros((self.M_sim, self.K), dtype=np.float32)  # per-user, per-CPU fronthaul quality
         # action space: [omega_1,omega_2,...,omega_K,p]  K+1 continuous vector for each agent
         # a in {0,1,2,3,4}, p in {0, 1, 2, 3, 4} (totally 5 levels (p+1)/5*100 mW)
@@ -424,6 +425,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             action_id = np.full((self.M_sim,), int(action_id.item()), dtype=np.int32)
         action_id = action_id[: self.M_sim]
         action_id = np.clip(action_id, 0, self.high_action_dim - 1)
+        self.last_high_action = action_id.copy()
         cluster_matrix = np.zeros((self.M_sim, self.N_sim), dtype=int)
         selected_ap_mask = np.zeros((self.M_sim, self.candidate_n), dtype=np.float32)
         for i in range(self.M_sim):
@@ -722,6 +724,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.current_cluster_size = np.full(self.M_sim, self.k_fixed, dtype=np.int32)
         self._reset_segment_stats()
         self.last_selected_ap_mask.fill(0.0)
+        self.last_high_action.fill(0)
         '''
         self.Task_size = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
         #self.Task_size = self.rng.uniform(50000, 100000, [1, self.M])
@@ -1021,7 +1024,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                 print("Average Actual Process Delay (ms):", avg_actual_process_delay_ms)
                 print("Average Uplink Rate (Mbps):", avg_uplink_rate_Mbps)
                 print("Offloading user", active)
-                print("cluster size", self.current_cluster_size)
+                print("action combo", self.last_high_action)
                 # 診斷: cpu_front_quality 是否有區分度, 低層是否選對 CPU
                 cfq = self.cpu_front_quality
                 best_cpu = np.argmax(cfq, axis=1)  # 每個 user 的最佳 CPU (0-indexed)

@@ -18,7 +18,7 @@ from envs.MA_MPO_stat_noncoop import MA_MPO_stat_noncoop
 
 from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
 from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
-from envs.MA_UCMEC_dyna_noncoop_cluster_rand import MA_UCMEC_dyna_noncoop_cluster_rand
+from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs as MA_UCMEC_dyna_noncoop_cluster_rand
 from envs.MA_UCMEC_dyna_noncoop_origin import MA_UCMEC_dyna_noncoop_origin
 from envs.MA_CBO_dyna_coop import MA_CBO_dyna_coop
 from envs.MA_CBO_dyna_noncoop import MA_CBO_dyna_noncoop

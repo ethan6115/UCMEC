@@ -21,16 +21,54 @@ import copy
 import os
 import sys
 import time
+from types import SimpleNamespace
 
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
+from algorithms.utils.high_context_encoder import HighContextEncoder
 from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow import (
     MA_UCMEC_dyna_noncoop_hierarchical_peruser as HeurEnv,
 )
+
+
+class SetComboClassifier(nn.Module):
+    """Set-based classifier that mirrors high-level actor structure."""
+
+    def __init__(self, obs_dim, n_classes, hidden_size=128, num_heads=4):
+        super().__init__()
+        enc_args = SimpleNamespace(
+            use_feature_normalization=True,
+            use_orthogonal=True,
+            use_ReLU=True,
+            layer_N=2,
+            hidden_size=hidden_size,
+            high_num_heads=num_heads,
+        )
+        self.encoder = HighContextEncoder(enc_args, obs_dim)
+        self.actor_mlp = nn.Sequential(
+            nn.Linear(hidden_size * 2, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+        )
+        self.logits = nn.Linear(hidden_size, n_classes)
+
+    def forward(self, obs_set):
+        # obs_set: [B, M, D]
+        h_ctx, g = self.encoder(obs_set)
+        g_expand = g.unsqueeze(1).expand_as(h_ctx)
+        actor_in = torch.cat([h_ctx, g_expand], dim=-1)
+        feat = self.actor_mlp(actor_in.reshape(-1, actor_in.shape[-1]))
+        out = self.logits(feat).reshape(obs_set.shape[0], obs_set.shape[1], -1)
+        return out
 
 
 def _snapshot(env):
@@ -146,13 +184,15 @@ def _rollout_interval_delay(env, combo_action, interval):
     Assumption:
       channel for t=0 has already been advanced by caller.
     """
-    env.apply_high_action(combo_action.astype(np.int32))
     delay_sum = np.zeros(env.M_sim, dtype=np.float64)
-    for t in range(interval):
-        if t > 0:
-            env.advance_channel()
-        env.step_low(_dummy_actions(env))
-        delay_sum += env.delay_last_clip[:env.M_sim, 0]
+    # Silence verbose environment diagnostics during supervised dataset rollout.
+    with open(os.devnull, "w") as devnull, contextlib.redirect_stdout(devnull):
+        env.apply_high_action(combo_action.astype(np.int32))
+        for t in range(interval):
+            if t > 0:
+                env.advance_channel()
+            env.step_low(_dummy_actions(env))
+            delay_sum += env.delay_last_clip[:env.M_sim, 0]
     return delay_sum / max(1, interval)
 
 
@@ -290,6 +330,41 @@ def collect_data(n_seeds=10, n_steps=500, interval=10,
     return obs_arr, labels_arr, delays_arr, seed_ids_arr
 
 
+def _make_seed_split(seed_ids):
+    """Build a seed-level split so MLP and SET share identical train/test seeds."""
+    unique_seeds = np.array(sorted(set(seed_ids.tolist())), dtype=np.int32)
+    rng = np.random.default_rng(0)
+    rng.shuffle(unique_seeds)
+    n_train = max(1, int(0.8 * len(unique_seeds)))
+    train_seeds = set(unique_seeds[:n_train].tolist())
+    test_seeds = set(unique_seeds[n_train:].tolist())
+    if len(test_seeds) == 0:
+        test_seeds = {int(unique_seeds[-1])}
+        train_seeds = set(unique_seeds[:-1].tolist())
+    return train_seeds, test_seeds
+
+
+def _to_set_batches(obs, labels, delays, seed_ids, m_sim):
+    """Convert flattened per-user arrays to per-interval set batches."""
+    if obs.ndim == 3:
+        # Already set-shaped.
+        obs_set = obs
+        labels_set = labels
+        delays_set = delays
+        seed_ids_set = seed_ids
+        return obs_set, labels_set, delays_set, seed_ids_set
+
+    n = obs.shape[0]
+    if n % m_sim != 0:
+        raise ValueError(f"Cannot reshape {n} samples into set batches with M_sim={m_sim}")
+    n_interval = n // m_sim
+    obs_set = obs.reshape(n_interval, m_sim, obs.shape[1])
+    labels_set = labels.reshape(n_interval, m_sim)
+    delays_set = delays.reshape(n_interval, m_sim, delays.shape[1])
+    seed_ids_set = seed_ids.reshape(n_interval, m_sim)[:, 0]
+    return obs_set, labels_set, delays_set, seed_ids_set
+
+
 def _eval_policy_closed_loop(policy_name, model, seeds, n_steps, interval,
                              oracle_horizon, oracle_mode):
     """Closed-loop rollout mean delay (ms) for one policy."""
@@ -312,6 +387,10 @@ def _eval_policy_closed_loop(policy_name, model, seeds, n_steps, interval,
                 with torch.no_grad():
                     logits = model(torch.FloatTensor(high_obs))
                     action = logits.argmax(dim=1).numpy().astype(np.int32)
+            elif policy_name == "set":
+                with torch.no_grad():
+                    logits = model(torch.FloatTensor(high_obs).unsqueeze(0))
+                    action = logits.argmax(dim=2).squeeze(0).numpy().astype(np.int32)
             elif policy_name == "oracle":
                 snap = _snapshot(env)
                 action, _ = oracle_search(
@@ -330,59 +409,61 @@ def _eval_policy_closed_loop(policy_name, model, seeds, n_steps, interval,
 
 
 def joint_rollout_eval(model, test_seeds, n_steps, interval,
-                       oracle_horizon, oracle_mode):
-    """Closed-loop comparison: baseline vs MLP vs oracle."""
-    model.eval()
+                       oracle_horizon, oracle_mode, set_model=None):
+    """Closed-loop comparison: baseline vs MLP/SET vs oracle."""
+    model.eval() if model is not None else None
+    set_model.eval() if set_model is not None else None
 
     bl = _eval_policy_closed_loop(
-        "baseline", model, test_seeds, n_steps, interval, oracle_horizon, oracle_mode
+        "baseline", model if model is not None else set_model,
+        test_seeds, n_steps, interval, oracle_horizon, oracle_mode
     )
-    ml = _eval_policy_closed_loop(
-        "mlp", model, test_seeds, n_steps, interval, oracle_horizon, oracle_mode
-    )
+    ml = None
+    st = None
+    if model is not None:
+        ml = _eval_policy_closed_loop(
+            "mlp", model, test_seeds, n_steps, interval, oracle_horizon, oracle_mode
+        )
+    if set_model is not None:
+        st = _eval_policy_closed_loop(
+            "set", set_model, test_seeds, n_steps, interval, oracle_horizon, oracle_mode
+        )
     ol = _eval_policy_closed_loop(
-        "oracle", model, test_seeds, n_steps, interval, oracle_horizon, oracle_mode
+        "oracle", model if model is not None else set_model,
+        test_seeds, n_steps, interval, oracle_horizon, oracle_mode
     )
-
-    gap_closed = 1.0 - (ml - ol) / max(bl - ol, 1e-12)
 
     print(f"\n  Closed-loop delay (ms) on test seeds {list(test_seeds)}:")
     print(f"    baseline:    {bl:.1f}")
-    print(f"    MLP:         {ml:.1f}")
+    if ml is not None:
+        gap_closed_mlp = 1.0 - (ml - ol) / max(bl - ol, 1e-12)
+        print(f"    MLP:         {ml:.1f}")
+        print(f"    gap closed (MLP): {gap_closed_mlp:.1%}")
+    if st is not None:
+        gap_closed_set = 1.0 - (st - ol) / max(bl - ol, 1e-12)
+        print(f"    SET:         {st:.1f}")
+        print(f"    gap closed (SET): {gap_closed_set:.1%}")
     print(f"    oracle:      {ol:.1f}")
-    print(f"    gap closed:  {gap_closed:.1%}")
 
-    return bl, ml, ol
+    return bl, ml, st, ol
 
 
-def train_and_eval(obs, labels, delays, seed_ids, n_classes=None,
-                   n_steps=500, interval=10,
-                   oracle_horizon=None, oracle_mode="greedy"):
-    """Train MLP, evaluate accuracy (per-seed split), then closed-loop rollout."""
-    import torch
-    import torch.nn as nn
-    import torch.optim as optim
-    from torch.utils.data import DataLoader, TensorDataset
+def _print_classification_metrics(name, probs, y_true, n_classes):
+    preds = probs.argmax(axis=1)
+    top1 = float(np.mean(preds == y_true))
+    top3_idx = np.argsort(probs, axis=1)[:, -3:]
+    top3 = float(np.mean([y_true[i] in top3_idx[i] for i in range(len(y_true))]))
+    top5_idx = np.argsort(probs, axis=1)[:, -5:]
+    top5 = float(np.mean([y_true[i] in top5_idx[i] for i in range(len(y_true))]))
+    print(f"  {name} top-1:          {top1:.1%}")
+    print(f"  {name} top-3:          {top3:.1%}")
+    print(f"  {name} top-5:          {top5:.1%}")
+    print(f"  Random baseline:    {1.0 / n_classes:.1%}")
+    return preds, top1, top3, top5
 
-    if oracle_horizon is None:
-        oracle_horizon = interval
 
-    obs_dim = obs.shape[1]
-    if n_classes is None:
-        tmp = HeurEnv(seed=0)
-        n_classes = len(tmp._ap_combos)
-
-    unique_seeds = np.array(sorted(set(seed_ids.tolist())), dtype=np.int32)
-    rng = np.random.default_rng(0)
-    rng.shuffle(unique_seeds)
-
-    n_train = max(1, int(0.8 * len(unique_seeds)))
-    train_seeds = set(unique_seeds[:n_train].tolist())
-    test_seeds = set(unique_seeds[n_train:].tolist())
-    if len(test_seeds) == 0:
-        test_seeds = {int(unique_seeds[-1])}
-        train_seeds = set(unique_seeds[:-1].tolist())
-
+def train_mlp(obs, labels, delays, seed_ids, train_seeds, test_seeds, n_classes):
+    """Train per-user MLP classifier on flattened samples."""
     train_mask = np.isin(seed_ids, list(train_seeds))
     test_mask = np.isin(seed_ids, list(test_seeds))
 
@@ -392,11 +473,8 @@ def train_and_eval(obs, labels, delays, seed_ids, n_classes=None,
     y_test = torch.LongTensor(labels[test_mask])
     delays_test = delays[test_mask]
 
-    print(f"\nSplit by seed: train_seeds={sorted(train_seeds)}, test_seeds={sorted(test_seeds)}")
-    print(f"  train={int(train_mask.sum())}, test={int(test_mask.sum())}")
-
     train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=256, shuffle=True)
-
+    obs_dim = obs.shape[1]
     model = nn.Sequential(
         nn.Linear(obs_dim, 256),
         nn.ReLU(),
@@ -404,13 +482,10 @@ def train_and_eval(obs, labels, delays, seed_ids, n_classes=None,
         nn.ReLU(),
         nn.Linear(256, n_classes),
     )
-
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
 
     print(f"\nTraining MLP: {obs_dim} -> 256 -> 256 -> {n_classes}")
-
-    best_test_acc = 0.0
     for epoch in range(200):
         model.train()
         total_loss = 0.0
@@ -421,49 +496,121 @@ def train_and_eval(obs, labels, delays, seed_ids, n_classes=None,
             loss.backward()
             optimizer.step()
             total_loss += float(loss.item() * xb.size(0))
+        if (epoch + 1) % 20 == 0 or epoch == 0:
+            model.eval()
+            with torch.no_grad():
+                probs = torch.softmax(model(X_test), dim=1).numpy()
+                y_np = y_test.numpy()
+                preds = probs.argmax(axis=1)
+                top1 = float(np.mean(preds == y_np))
+            print(
+                f"  epoch {epoch + 1:3d}  "
+                f"loss={total_loss / max(1, int(train_mask.sum())):.4f}  "
+                f"top1={top1:.1%}"
+            )
 
+    model.eval()
+    with torch.no_grad():
+        probs = torch.softmax(model(X_test), dim=1).numpy()
+    y_np = y_test.numpy()
+    preds, _, _, _ = _print_classification_metrics("MLP", probs, y_np, n_classes)
+
+    mlp_delay_indep = np.array([delays_test[i, preds[i]] for i in range(len(preds))])
+    oracle_delay_indep = np.array([delays_test[i, y_np[i]] for i in range(len(y_np))])
+    baseline_delay_indep = delays_test[:, 0]
+    print("\n  Independent delay lookup (reference, not closed-loop):")
+    print(f"    baseline: {np.mean(baseline_delay_indep) * 1000:.1f} ms")
+    print(f"    MLP:      {np.mean(mlp_delay_indep) * 1000:.1f} ms")
+    print(f"    oracle:   {np.mean(oracle_delay_indep) * 1000:.1f} ms")
+
+    return model
+
+
+def train_set(obs, labels, delays, seed_ids, train_seeds, test_seeds, n_classes, m_sim):
+    """Train set-based classifier on interval batches."""
+    obs_set, labels_set, delays_set, seed_ids_set = _to_set_batches(obs, labels, delays, seed_ids, m_sim)
+    train_mask = np.isin(seed_ids_set, list(train_seeds))
+    test_mask = np.isin(seed_ids_set, list(test_seeds))
+
+    X_train = torch.FloatTensor(obs_set[train_mask])   # [B, M, D]
+    y_train = torch.LongTensor(labels_set[train_mask]) # [B, M]
+    X_test = torch.FloatTensor(obs_set[test_mask])
+    y_test = torch.LongTensor(labels_set[test_mask])
+    delays_test = delays_set[test_mask]                # [B, M, C]
+
+    train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=64, shuffle=True)
+    obs_dim = obs_set.shape[2]
+    model = SetComboClassifier(obs_dim=obs_dim, n_classes=n_classes, hidden_size=128, num_heads=4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    print(f"\nTraining SET: ({m_sim}, {obs_dim}) -> attention -> {n_classes}")
+    for epoch in range(200):
+        model.train()
+        total_loss = 0.0
+        for xb, yb in train_loader:
+            optimizer.zero_grad()
+            logits = model(xb)  # [B, M, C]
+            loss = criterion(logits.reshape(-1, n_classes), yb.reshape(-1))
+            loss.backward()
+            optimizer.step()
+            total_loss += float(loss.item() * xb.size(0))
         if (epoch + 1) % 20 == 0 or epoch == 0:
             model.eval()
             with torch.no_grad():
                 logits_test = model(X_test)
-                probs = torch.softmax(logits_test, dim=1).numpy()
-                preds = probs.argmax(axis=1)
+                probs = torch.softmax(logits_test, dim=2).numpy()
+                preds = probs.argmax(axis=2)
                 y_np = y_test.numpy()
-
                 top1 = float(np.mean(preds == y_np))
-                top3_idx = np.argsort(probs, axis=1)[:, -3:]
-                top3 = float(np.mean([y_np[i] in top3_idx[i] for i in range(len(y_np))]))
-                top5_idx = np.argsort(probs, axis=1)[:, -5:]
-                top5 = float(np.mean([y_np[i] in top5_idx[i] for i in range(len(y_np))]))
-                best_test_acc = max(best_test_acc, top1)
-
             print(
                 f"  epoch {epoch + 1:3d}  "
                 f"loss={total_loss / max(1, int(train_mask.sum())):.4f}  "
-                f"top1={top1:.1%}  top3={top3:.1%}  top5={top5:.1%}"
+                f"top1={top1:.1%}"
             )
 
     model.eval()
     with torch.no_grad():
         logits_test = model(X_test)
-        probs = torch.softmax(logits_test, dim=1).numpy()
-        preds = probs.argmax(axis=1)
+        probs_set = torch.softmax(logits_test, dim=2).numpy()
+    preds_set = probs_set.argmax(axis=2)
+    probs_flat = probs_set.reshape(-1, n_classes)
+    y_flat = y_test.numpy().reshape(-1)
+    preds_flat, _, _, _ = _print_classification_metrics("SET", probs_flat, y_flat, n_classes)
 
-    y_np = y_test.numpy()
-    top1 = float(np.mean(preds == y_np))
-    top3_idx = np.argsort(probs, axis=1)[:, -3:]
-    top3 = float(np.mean([y_np[i] in top3_idx[i] for i in range(len(y_np))]))
-    top5_idx = np.argsort(probs, axis=1)[:, -5:]
-    top5 = float(np.mean([y_np[i] in top5_idx[i] for i in range(len(y_np))]))
+    delays_flat = delays_test.reshape(-1, n_classes)
+    set_delay_indep = np.array([delays_flat[i, preds_flat[i]] for i in range(len(preds_flat))])
+    oracle_delay_indep = np.array([delays_flat[i, y_flat[i]] for i in range(len(y_flat))])
+    baseline_delay_indep = delays_flat[:, 0]
+    print("\n  Independent delay lookup (reference, not closed-loop):")
+    print(f"    baseline: {np.mean(baseline_delay_indep) * 1000:.1f} ms")
+    print(f"    SET:      {np.mean(set_delay_indep) * 1000:.1f} ms")
+    print(f"    oracle:   {np.mean(oracle_delay_indep) * 1000:.1f} ms")
+
+    return model
+
+
+def train_and_eval(obs, labels, delays, seed_ids, n_classes=None,
+                   n_steps=500, interval=10,
+                   oracle_horizon=None, oracle_mode="greedy",
+                   sup_model="both"):
+    """Train supervised model(s) and run closed-loop evaluation."""
+
+    if oracle_horizon is None:
+        oracle_horizon = interval
+
+    if n_classes is None:
+        tmp = HeurEnv(seed=0)
+        n_classes = len(tmp._ap_combos)
+    m_sim = HeurEnv(seed=0).M_sim
+    train_seeds, test_seeds = _make_seed_split(seed_ids)
+
+    print(f"\nSplit by seed: train_seeds={sorted(train_seeds)}, test_seeds={sorted(test_seeds)}")
+    print(f"  train={int(np.isin(seed_ids, list(train_seeds)).sum())}, test={int(np.isin(seed_ids, list(test_seeds)).sum())}")
 
     print("\n" + "=" * 60)
-    print(f"ACCURACY RESULTS (test set, n={len(y_np)}, split by seed)")
+    print("ACCURACY RESULTS (split by seed)")
     print("=" * 60)
-    print(f"  Random baseline:    {1.0 / n_classes:.1%}")
-    print(f"  MLP top-1:          {top1:.1%}")
-    print(f"  MLP top-3:          {top3:.1%}")
-    print(f"  MLP top-5:          {top5:.1%}")
-    print(f"  Best test accuracy: {best_test_acc:.1%}")
 
     print("\nLabel distribution (full dataset):")
     combo_counts = np.bincount(labels, minlength=n_classes)
@@ -475,41 +622,27 @@ def train_and_eval(obs, labels, delays, seed_ids, n_classes=None,
         print(f"  #{rank + 1}: combo {c} (cand {aps[0]},{aps[1]}) = {combo_frac[c]:.1%}")
     print(f"  Baseline (combo 0, cand 0,1) is optimal: {combo_frac[0]:.1%}")
 
-    # Reference only: independent delay lookup on label table.
-    mlp_delay_indep = np.array([delays_test[i, preds[i]] for i in range(len(preds))])
-    oracle_delay_indep = np.array([delays_test[i, y_np[i]] for i in range(len(y_np))])
-    baseline_delay_indep = delays_test[:, 0]
-    print("\n  Independent delay lookup (reference, not closed-loop):")
-    print(f"    baseline: {np.mean(baseline_delay_indep) * 1000:.1f} ms")
-    print(f"    MLP:      {np.mean(mlp_delay_indep) * 1000:.1f} ms")
-    print(f"    oracle:   {np.mean(oracle_delay_indep) * 1000:.1f} ms")
-
-    wrong_mask = preds != y_np
-    if int(wrong_mask.sum()) > 0:
-        wrong_gap = mlp_delay_indep[wrong_mask] - oracle_delay_indep[wrong_mask]
-        near_optimal = (
-            np.abs(wrong_gap)
-            / (np.abs(oracle_delay_indep[wrong_mask]) + 1e-12)
-            < 0.05
-        )
-        print(f"\n  When MLP is wrong ({int(wrong_mask.sum())} samples):")
-        print(f"    median extra delay: {np.median(wrong_gap) * 1000:.2f} ms")
-        print(f"    mean extra delay:   {np.mean(wrong_gap) * 1000:.2f} ms")
-        print(f"    within 5% of oracle: {np.mean(near_optimal):.1%}")
+    mlp_model = None
+    set_model = None
+    if sup_model in {"mlp", "both"}:
+        mlp_model = train_mlp(obs, labels, delays, seed_ids, train_seeds, test_seeds, n_classes)
+    if sup_model in {"set", "both"}:
+        set_model = train_set(obs, labels, delays, seed_ids, train_seeds, test_seeds, n_classes, m_sim)
 
     print("\n" + "=" * 60)
     print("CLOSED-LOOP ROLLOUT EVALUATION")
     print("=" * 60)
     joint_rollout_eval(
-        model,
+        mlp_model,
         sorted(test_seeds),
         n_steps=n_steps,
         interval=interval,
         oracle_horizon=oracle_horizon,
         oracle_mode=oracle_mode,
+        set_model=set_model,
     )
 
-    return top1, top3, top5
+    return None
 
 
 def main():
@@ -527,6 +660,9 @@ def main():
                         help="Data collection behavior policy")
     parser.add_argument("--data_file", type=str, default=None,
                         help="Load pre-collected data (skips collection)")
+    parser.add_argument("--sup_model", type=str, default="both",
+                        choices=["mlp", "set", "both"],
+                        help="Supervised model type for learnability test")
     args = parser.parse_args()
 
     if args.oracle_horizon is None:
@@ -575,6 +711,7 @@ def main():
         interval=args.interval,
         oracle_horizon=args.oracle_horizon,
         oracle_mode=args.oracle_mode,
+        sup_model=args.sup_model,
     )
 
 

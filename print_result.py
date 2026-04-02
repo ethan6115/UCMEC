@@ -9,6 +9,7 @@ mat_paths = [
     #IPPO
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_randcluster\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster2\reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster3\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster5\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\run1\reward.mat',
     #hierarchical peruser
@@ -23,17 +24,18 @@ mat_paths = [
 #nlos
     #IPPO
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\run1\reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs\reward.mat',
     #hierarchical peruser
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\reward.mat', 
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\run1\reward.mat', 
     #stageBC
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1\high_reward.mat',
-    #local
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run1\reward.mat',
+    #heuristic 
     r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\reward.mat',
+    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\reward.mat',
     #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\high_reward.mat',
+    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\high_reward.mat',
 ]
 
 def load_reward(file_path):

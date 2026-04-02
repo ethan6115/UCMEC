@@ -166,7 +166,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # parameter init
         self.n_agents = self.M_sim
         self.agent_num = self.n_agents
-        self.mask_local = True  # True=9 actions (no local), False=10 actions (with local)
+        self.mask_local = False  # True=9 actions (no local), False=10 actions (with local)
         self.obs_dim = 9  # 6 original + 3 cpu_front_quality
         self.action_dim = 9 if self.mask_local else 10
         self._render = render
@@ -191,8 +191,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self._top10_ap_idx = None
         # 高層 reward 用 log-front: front_term = min(log1p(raw/ref), cap)
         self.front_ref = self.tau_c   # 0.1s, 用 τ_c 當歸一化基準
-        self.front_cap = 5.0
-        self.lambda_front = 1.0
+        self.front_cap = 10.0
+        self.lambda_front = 0.5
         self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
