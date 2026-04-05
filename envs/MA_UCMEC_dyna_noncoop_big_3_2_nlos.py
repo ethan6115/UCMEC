@@ -76,7 +76,7 @@ class MA_UCMEC_dyna_noncoop(object):
         #self.C_user = self.rng.uniform(2e9, 5e9, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(1e9, 2e9, [1, self.M])  # computing resource of users  in Hz
         
-        self.cluster_size = 5
+        self.cluster_size = 2
 
         # edge server parameter
         self.C_edge = self.rng.uniform(30e9, 50e9, [self.K, 1])  # computing resource of edge server in CPU  20e9, 40e9

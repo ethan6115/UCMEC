@@ -134,6 +134,7 @@ class EnvRunner(Runner):
                         self.high_buffer.rnn_states[self.high_buffer.step].squeeze(1),
                         self.high_buffer.rnn_states_critic[self.high_buffer.step].squeeze(1),
                         high_masks_in.squeeze(1),
+                        deterministic=self.freeze_high,
                     )
                     action_h = _t2n(action_h)
                     if self.use_high_peruser:

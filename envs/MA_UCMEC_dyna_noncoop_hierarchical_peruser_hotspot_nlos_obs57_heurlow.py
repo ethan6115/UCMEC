@@ -174,7 +174,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.low_heuristic_cpu = True
         self.low_heuristic_power = "max"  # "max" | "follow_action"
         self.low_heuristic_power_idx = 2  # for 3-level power index {0,1,2}, 2 means max
-        self.obs_dim = 9  # 6 original + 3 cpu_front_quality
+        self.obs_dim = 8  # 5 original + 3 cpu_front_quality (cluster_size removed)
         self.action_dim = 9 if self.mask_local else 10
         self._render = render
 
@@ -231,7 +231,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(self.action_dim)] * self.n_agents))
         # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
         # r in [0, 10e8]
-        self.norm_factor = np.array([819200.0, 1000.0, 3.0, self.P_max, self.max_delay, 10.0, 1.0, 1.0, 1.0])   #對obs做正規化用的，cpu_front_quality已預歸一化所以除以1.0
+        self.norm_factor = np.array([819200.0, 1000.0, 3.0, self.P_max, self.max_delay, 1.0, 1.0, 1.0])   #對obs做正規化用的，cpu_front_quality已預歸一化所以除以1.0
         self.obs_low = np.zeros(self.obs_dim)  # [0, 0, 0, 0, 0, 0]
         self.obs_high = np.ones(self.obs_dim)  # [1, 1, 1, 1, 1, 1]
         # obs = {task data size, task computing density, action index, total delay of last time slot}
@@ -311,7 +311,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # 用 log-front (壓縮極端值，保留區分度)
         avg_front_log = self._segment_front_log_sum / offload_den
 
-        reward = -(avg_total + self.lambda_front * avg_front_log).astype(np.float32)
+        #reward = -(avg_total + self.lambda_front * avg_front_log).astype(np.float32)
+        reward = -(avg_total).astype(np.float32)
         return reward
 
     def action_mapping(self, action_agent):
@@ -742,7 +743,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             0,
             0,
             0,
-            self.current_cluster_size[i],
             0.0,  # cpu_front_quality[0] - 尚無AP選擇
             0.0,  # cpu_front_quality[1]
             0.0,  # cpu_front_quality[2]
@@ -1077,7 +1077,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             self.omega_last[i],
             self.p_last[i],
             self.delay_last_clip[i, 0],
-            self.current_cluster_size[i],
             self.cpu_front_quality[i, 0],  # CPU1 bottleneck fronthaul quality
             self.cpu_front_quality[i, 1],  # CPU2 bottleneck fronthaul quality
             self.cpu_front_quality[i, 2],  # CPU3 bottleneck fronthaul quality

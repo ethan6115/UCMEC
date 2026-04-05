@@ -423,6 +423,10 @@ def get_config():
     parser.add_argument("--high_ppo_epoch", type=int, default=15, help="high-level ppo epochs")
     parser.add_argument("--high_clip_param", type=float, default=0.2, help="high-level ppo clip")
     parser.add_argument("--high_num_mini_batch", type=int, default=1, help="high-level mini batches")
+    parser.add_argument("--high_encoder_type", type=str, default="set",
+                        choices=["set", "noattn-lp", "noattn-mp"],
+                        help="high-level encoder: 'set' (attn+learned pool), "
+                             "'noattn-lp' (no attn, learned pool), 'noattn-mp' (no attn, mean pool)")
     parser.add_argument("--high_entropy_coef", type=float, default=0.01, help="high-level entropy coef")
     parser.add_argument("--high_value_loss_coef", type=float, default=1.0, help="high-level value loss coef")
     parser.add_argument("--high_max_grad_norm", type=float, default=0.5, help="high-level max grad norm")

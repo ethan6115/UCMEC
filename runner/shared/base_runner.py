@@ -129,6 +129,7 @@ class Runner(object):
             high_args.gae_lambda = self.all_args.high_gae_lambda
             high_args.episode_length = int(math.ceil(self.episode_length / self.hierarchical_interval))
             high_args.use_set_encoder = True
+            high_args.high_encoder_type = getattr(self.all_args, "high_encoder_type", "set")
             
 
             env0 = self.envs.envs[0] if hasattr(self.envs, "envs") else self.envs

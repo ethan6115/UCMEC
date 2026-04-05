@@ -27,6 +27,7 @@ SEEDS = [18, 62, 53, 14, 58,
          153, 26, 59, 365, 84,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
+
 #SEEDS = [18, 62, 53, 14, 58]
 #SEEDS = [71, 776, 11, 58, 150, 59, 161, 3, 365, 84] #win
 def make_env(seed):
@@ -47,7 +48,7 @@ def make_env(seed):
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_high.pt"
 
 #nlos
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs\models/actor_999.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs8\models/actor_999.pt"
 #nlos hierarchical peruser
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_999.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_high.pt"
@@ -58,7 +59,12 @@ MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_clu
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\models/actor_999.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\models/actor_high.pt"
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\models/actor_499.pt"
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\models/actor_high.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\models/actor_high.pt"
+#nlos noattn ablation
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn_lp\run1\models/actor_high.pt"
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_noattn-mp_low\run2\models/actor_800.pt"
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run1\models/actor_high.pt"
+
 #stageBC
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_700.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_high.pt"
@@ -169,10 +175,22 @@ def _restore_env(env, snap):
     env._interval_delays = list(snap["_interval_delays"])
     env._pending_high_action = snap["_pending_high_action"].copy() if snap["_pending_high_action"] is not None else None
     env._top10_ap_idx = snap["_top10_ap_idx"].copy() if snap["_top10_ap_idx"] is not None else None
+def _build_dummy_actions_env(act_space, n_agents):
+    """Build a fixed one-hot low-level action batch.
+
+    For heurlow heuristic-low eval, low actions are overridden by env logic,
+    so any valid one-hot action is equivalent.
+    """
+    idx = np.zeros((n_agents,), dtype=np.int64)
+    return np.eye(act_space.n, dtype=np.float32)[idx]
+
+
 def _run_interval_sim(env, actor, act_space, obs, rnn_states, masks, n_steps):
     """Run n_steps with current env state, return mean total_delay_clip per user."""
     delay_sum = np.zeros(env.M_sim, dtype=np.float64)
-    if isinstance(rnn_states, torch.Tensor):
+    if actor is None:
+        rnn_tmp = None
+    elif isinstance(rnn_states, torch.Tensor):
         rnn_tmp = rnn_states.clone()
     else:
         rnn_tmp = rnn_states.copy()
@@ -181,11 +199,14 @@ def _run_interval_sim(env, actor, act_space, obs, rnn_states, masks, n_steps):
     for t in range(n_steps):
         if t > 0:
             env.advance_channel()
-        obs_batch = np.stack(sim_obs)
-        with torch.no_grad():
-            actions_t, _, rnn_tmp = actor(obs_batch, rnn_tmp, masks, deterministic=True)
-        action_indices = actions_t.cpu().numpy().flatten()
-        actions_env = np.eye(act_space.n)[action_indices]
+        if actor is None:
+            actions_env = _build_dummy_actions_env(act_space, env.n_agents)
+        else:
+            obs_batch = np.stack(sim_obs)
+            with torch.no_grad():
+                actions_t, _, rnn_tmp = actor(obs_batch, rnn_tmp, masks, deterministic=True)
+            action_indices = actions_t.cpu().numpy().flatten()
+            actions_env = np.eye(act_space.n)[action_indices]
         sim_obs, _, _, _ = env.step(actions_env)
         delay_sum += env.delay_last_clip[:env.M_sim, 0]
     return delay_sum / max(1, n_steps)
@@ -256,32 +277,58 @@ def evaluate(model_path):
     obs_space = env.observation_space[0] 
     act_space = env.action_space[0]
     
-    actor = R_Actor(args, obs_space, act_space, device)
-    
-    # 4. 載入訓練好的模型權重
-    print(f"Loading model: {model_path}")
-    if os.path.exists(model_path):
-        # load state_dict
-        state_dict = torch.load(model_path, map_location=device)
-        actor.load_state_dict(state_dict)
-        print("Model loaded.")
+    use_dummy_low_policy = bool(
+        USE_HIERARCHICAL
+        and PER_USER
+        and hasattr(env, "low_heuristic_only")
+        and getattr(env, "low_heuristic_only", False)
+        and getattr(env, "low_heuristic_cpu", False)
+        and getattr(env, "low_heuristic_power", "") == "max"
+    )
+
+    actor = None
+    if use_dummy_low_policy:
+        print("[eval] Heurlow heuristic-low detected: skip loading low model and use fixed dummy low actions.")
     else:
-        print(f"Error: model not found {model_path}")
-        return
-    # 切換到評估模式
-    actor.eval()
+        actor = R_Actor(args, obs_space, act_space, device)
+
+        # 4. 載入訓練好的模型權重
+        print(f"Loading model: {model_path}")
+        if os.path.exists(model_path):
+            # load state_dict
+            state_dict = torch.load(model_path, map_location=device)
+            actor.load_state_dict(state_dict)
+            print("Model loaded.")
+        else:
+            print(f"Error: model not found {model_path}")
+            return
+        # 切換到評估模式
+        actor.eval()
     high_actor = None
     if USE_HIERARCHICAL:
         if HIGH_POLICY_MODE == "trained":
             high_obs_space = env.high_observation_space
             high_act_space = env.high_action_space
-            if PER_USER:
-                high_actor = HighActor(high_args, high_obs_space, high_act_space, device)
-            else:
-                high_actor = R_Actor(high_args, high_obs_space, high_act_space, device)
             print(f"Loading model: {MODEL_HIGH}")
             if os.path.exists(MODEL_HIGH):
                 state_dict = torch.load(MODEL_HIGH, map_location=device)
+                if PER_USER:
+                    # Auto-match high-level encoder architecture to checkpoint.
+                    # Old ablation checkpoints (noattn-*) do not contain encoder.attn* keys.
+                    ckpt_keys = state_dict.keys()
+                    has_attn = any(k.startswith("encoder.attn.") or k.startswith("encoder.attn_norm.") for k in ckpt_keys)
+                    has_pool = any(k.startswith("encoder.pool_score.") for k in ckpt_keys)
+                    inferred_encoder_type = "set" if has_attn else ("noattn-lp" if has_pool else "noattn-mp")
+                    configured_encoder_type = getattr(high_args, "high_encoder_type", "set")
+                    if configured_encoder_type != inferred_encoder_type:
+                        print(
+                            f"[eval] Override high_encoder_type: {configured_encoder_type} -> "
+                            f"{inferred_encoder_type} (from checkpoint keys)."
+                        )
+                    high_args.high_encoder_type = inferred_encoder_type
+                    high_actor = HighActor(high_args, high_obs_space, high_act_space, device)
+                else:
+                    high_actor = R_Actor(high_args, high_obs_space, high_act_space, device)
                 high_actor.load_state_dict(state_dict)
                 print("Model loaded.")
             else:
@@ -399,8 +446,12 @@ def evaluate(model_path):
         pivotal_none_count = 0
         for _ in range(num_episodes):
             obs = env.reset()
-            rnn_states = np.zeros((env.n_agents, args.recurrent_N, args.hidden_size), dtype=np.float32)
-            masks = np.ones((env.n_agents, 1), dtype=np.float32)
+            if use_dummy_low_policy:
+                rnn_states = None
+                masks = None
+            else:
+                rnn_states = np.zeros((env.n_agents, args.recurrent_N, args.hidden_size), dtype=np.float32)
+                masks = np.ones((env.n_agents, 1), dtype=np.float32)
             sum_avg_total_delay = 0.0
             sum_avg_local_delay = 0.0
             sum_avg_uplink_delay = 0.0
@@ -586,11 +637,14 @@ def evaluate(model_path):
                             sum_best_cfq_sum += float(np.mean(best_cfq))
                             sum_best_cfq_count += 1
                             _diag_best_cfq_all.append(float(np.mean(best_cfq)))
-                obs_batch = np.stack(obs)
-                with torch.no_grad():
-                    actions, _, rnn_states = actor(obs_batch, rnn_states, masks, deterministic=True)
-                action_indices = actions.cpu().numpy().flatten()
-                actions_env = np.eye(act_space.n)[action_indices]
+                if use_dummy_low_policy:
+                    actions_env = _build_dummy_actions_env(act_space, env.n_agents)
+                else:
+                    obs_batch = np.stack(obs)
+                    with torch.no_grad():
+                        actions, _, rnn_states = actor(obs_batch, rnn_states, masks, deterministic=True)
+                    action_indices = actions.cpu().numpy().flatten()
+                    actions_env = np.eye(act_space.n)[action_indices]
                 next_obs, rewards, next_dones, infos = env.step(actions_env)
                 if USE_PIVOTAL_STATS:
                     if (
@@ -987,10 +1041,13 @@ def evaluate(model_path):
             print(vals)
 if __name__ == "__main__":
     #model_file = "C:/DCNLab/UCMEC/UCMEC-mmWave-Fronthaul/results/MyEnv/MyEnv/mappo/noncoop_paper_baseline/paper_interval10/models/actor.pt" 
-    model_file = MODEL_LOW 
+    model_file = globals().get("MODEL_LOW", None)
     
     # 檢查路徑是否已設定
-    if "請替換" in model_file:
+    if model_file is None:
+        print("[eval] MODEL_LOW 未定義，將以無 low model 模式執行（僅適用 heuristic-low 覆蓋情境）。")
+        evaluate("")
+    elif "請替換" in model_file:
         print("提示: 請編輯程式碼底部的 'model_file' 變數，設定正確的 actor.pt 路徑。")
     else:
         evaluate(model_file)
