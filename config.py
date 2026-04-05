@@ -427,6 +427,10 @@ def get_config():
                         choices=["set", "noattn-lp", "noattn-mp"],
                         help="high-level encoder: 'set' (attn+learned pool), "
                              "'noattn-lp' (no attn, learned pool), 'noattn-mp' (no attn, mean pool)")
+    parser.add_argument("--high_actor_type", type=str, default="mlp",
+                        choices=["mlp", "pair_scorer"],
+                        help="high-level actor head: 'mlp' (original flat), "
+                             "'pair_scorer' (structured AP pair scoring)")
     parser.add_argument("--high_entropy_coef", type=float, default=0.01, help="high-level entropy coef")
     parser.add_argument("--high_value_loss_coef", type=float, default=1.0, help="high-level value loss coef")
     parser.add_argument("--high_max_grad_norm", type=float, default=0.5, help="high-level max grad norm")

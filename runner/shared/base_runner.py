@@ -130,6 +130,10 @@ class Runner(object):
             high_args.episode_length = int(math.ceil(self.episode_length / self.hierarchical_interval))
             high_args.use_set_encoder = True
             high_args.high_encoder_type = getattr(self.all_args, "high_encoder_type", "set")
+            high_args.high_actor_type = getattr(self.all_args, "high_actor_type", "mlp")
+            high_args.candidate_n = getattr(self.all_args, "candidate_n", 8)
+            high_args.k_fixed = getattr(self.all_args, "k_fixed", 2)
+            high_args.num_cpus = getattr(self.all_args, "num_cpus", 3)
             
 
             env0 = self.envs.envs[0] if hasattr(self.envs, "envs") else self.envs

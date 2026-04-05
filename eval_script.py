@@ -48,7 +48,7 @@ def make_env(seed):
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_high.pt"
 
 #nlos
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs8\models/actor_999.pt"
+MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs8\models/actor_999.pt"
 #nlos hierarchical peruser
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_999.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_high.pt"
@@ -62,8 +62,10 @@ def make_env(seed):
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\models/actor_high.pt"
 #nlos noattn ablation
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn_lp\run1\models/actor_high.pt"
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_noattn-mp_low\run2\models/actor_800.pt"
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run1\models/actor_high.pt"
+#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_noattn-mp_low\run2\models/actor_800.pt"
+#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run1\models/actor_high.pt"
+# new actor
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_pair_scorer\run1\models/actor_high.pt"
 
 #stageBC
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_700.pt"
@@ -77,7 +79,7 @@ try:
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
@@ -313,19 +315,65 @@ def evaluate(model_path):
             if os.path.exists(MODEL_HIGH):
                 state_dict = torch.load(MODEL_HIGH, map_location=device)
                 if PER_USER:
-                    # Auto-match high-level encoder architecture to checkpoint.
-                    # Old ablation checkpoints (noattn-*) do not contain encoder.attn* keys.
-                    ckpt_keys = state_dict.keys()
-                    has_attn = any(k.startswith("encoder.attn.") or k.startswith("encoder.attn_norm.") for k in ckpt_keys)
-                    has_pool = any(k.startswith("encoder.pool_score.") for k in ckpt_keys)
-                    inferred_encoder_type = "set" if has_attn else ("noattn-lp" if has_pool else "noattn-mp")
-                    configured_encoder_type = getattr(high_args, "high_encoder_type", "set")
-                    if configured_encoder_type != inferred_encoder_type:
+                    ckpt_keys = list(state_dict.keys())
+
+                    # Auto-match high actor type for backward compatibility:
+                    #   - old/new MLP heads
+                    #   - pair_scorer heads
+                    has_pair_scorer = any(
+                        k.startswith("ap_mlp.")
+                        or k.startswith("scorer.")
+                        or k.startswith("g_pre.")
+                        or k.startswith("_ap_indices")
+                        for k in ckpt_keys
+                    )
+                    inferred_actor_type = "pair_scorer" if has_pair_scorer else "mlp"
+                    configured_actor_type = getattr(high_args, "high_actor_type", "mlp")
+                    if configured_actor_type != inferred_actor_type:
                         print(
-                            f"[eval] Override high_encoder_type: {configured_encoder_type} -> "
-                            f"{inferred_encoder_type} (from checkpoint keys)."
+                            f"[eval] Override high_actor_type: {configured_actor_type} -> "
+                            f"{inferred_actor_type} (from checkpoint keys)."
                         )
-                    high_args.high_encoder_type = inferred_encoder_type
+                    high_args.high_actor_type = inferred_actor_type
+
+                    # Infer high hidden size from checkpoint RNN weights if available.
+                    # Keeps eval compatible with runs trained using different high_hidden_size.
+                    inferred_hidden_size = None
+                    if "rnn.rnn.weight_hh_l0" in state_dict:
+                        inferred_hidden_size = int(state_dict["rnn.rnn.weight_hh_l0"].shape[1])
+                    elif "g_pre.weight" in state_dict:
+                        inferred_hidden_size = int(state_dict["g_pre.weight"].shape[0])
+                    elif "logits.weight" in state_dict:
+                        inferred_hidden_size = int(state_dict["logits.weight"].shape[1])
+                    if inferred_hidden_size is not None:
+                        if int(high_args.hidden_size) != inferred_hidden_size:
+                            print(
+                                f"[eval] Override high hidden_size: {high_args.hidden_size} -> "
+                                f"{inferred_hidden_size} (from checkpoint shape)."
+                            )
+                        high_args.hidden_size = inferred_hidden_size
+
+                    # Keep pair_scorer combo construction aligned with env.
+                    if hasattr(env, "candidate_n"):
+                        high_args.candidate_n = int(env.candidate_n)
+                    if hasattr(env, "k_fixed"):
+                        high_args.k_fixed = int(env.k_fixed)
+                    if hasattr(env, "K"):
+                        high_args.num_cpus = int(env.K)
+
+                    # MLP-only encoder type auto-match (noattn / set ablations).
+                    if inferred_actor_type == "mlp":
+                        has_attn = any(k.startswith("encoder.attn.") or k.startswith("encoder.attn_norm.") for k in ckpt_keys)
+                        has_pool = any(k.startswith("encoder.pool_score.") for k in ckpt_keys)
+                        inferred_encoder_type = "set" if has_attn else ("noattn-lp" if has_pool else "noattn-mp")
+                        configured_encoder_type = getattr(high_args, "high_encoder_type", "set")
+                        if configured_encoder_type != inferred_encoder_type:
+                            print(
+                                f"[eval] Override high_encoder_type: {configured_encoder_type} -> "
+                                f"{inferred_encoder_type} (from checkpoint keys)."
+                            )
+                        high_args.high_encoder_type = inferred_encoder_type
+
                     high_actor = HighActor(high_args, high_obs_space, high_act_space, device)
                 else:
                     high_actor = R_Actor(high_args, high_obs_space, high_act_space, device)
