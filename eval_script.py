@@ -18,18 +18,18 @@ USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = "trained"  # "trained" | "baseline_topk" | "oracle"
+HIGH_POLICY_MODE = "baseline_topk"  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
 
 SEEDS = [18, 62, 53, 14, 58,
          161, 37, 3, 95, 150,
-         11, 17, 29, 189, 198,
+         11, 1, 29, 189, 198,
          153, 26, 59, 365, 84,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
 
 #SEEDS = [18, 62, 53, 14, 58]
-#SEEDS = [71, 776, 11, 58, 150, 59, 161, 3, 365, 84] #win
+#SEEDS = [99, 95, 58, 776, 153, 11, 84, 94, 189, 735] #win
 def make_env(seed):
     if USE_HIERARCHICAL:
         if PER_USER:
@@ -65,7 +65,7 @@ MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_clu
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_noattn-mp_low\run2\models/actor_800.pt"
 #MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run1\models/actor_high.pt"
 # new actor
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_pair_scorer\run1\models/actor_high.pt"
+MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_pair_scorer\run2\models/actor_high.pt"
 
 #stageBC
 #MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_700.pt"
@@ -79,7 +79,7 @@ try:
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
@@ -245,6 +245,43 @@ def _oracle_search(env, actor, act_space, obs, rnn_states, masks, n_steps):
     # Restore env to original state
     _restore_env(env, snap)
     return current_combo
+
+# ── Best-fronthaul heuristic ─────────────────────────────────────────────────
+def _best_front_action(env):
+    """Per-user heuristic: pick the AP combo with the best fronthaul quality.
+
+    For each user, for each of the C(n,k) combos, compute
+    max_cpu(bottleneck_front_quality) and select the combo that maximises it.
+    Uses the same pathloss formula as env._compute_cpu_front_quality().
+    No simulation rollout needed — purely channel-based.
+    """
+    n_combos = len(env._ap_combos)
+    lo, hi = env.front_db_clip
+    best_combo = np.zeros(env.M_sim, dtype=np.int32)
+    for i in range(env.M_sim):
+        best_score = -np.inf
+        for combo_idx in range(n_combos):
+            combo = env._ap_combos[combo_idx]
+            ap_idx = env._top10_ap_idx[i][list(combo)]
+            # Compute bottleneck fronthaul quality for each CPU
+            max_cpu_quality = -np.inf
+            for cpu in range(env.K):
+                pl_values = []
+                for ap in ap_idx:
+                    dist = max(env.distance_matrix_front[ap, cpu], 1e-6)
+                    alpha = env.alpha_los if env.link_type[ap, cpu] == 0 else env.alpha_nlos
+                    g = max(env.G[ap, cpu], 1e-12)
+                    pl = g * pow(dist, -alpha)
+                    pl_values.append(pl)
+                min_pl_db = 10.0 * np.log10(min(pl_values) + 1e-12)
+                quality = float(np.clip((min_pl_db - lo) / (hi - lo), 0.0, 1.0))
+                if quality > max_cpu_quality:
+                    max_cpu_quality = quality
+            if max_cpu_quality > best_score:
+                best_score = max_cpu_quality
+                best_combo[i] = combo_idx
+    return best_combo
+
 def evaluate(model_path):
     # 1. 取得設定參數 (Arguments)
     # 使用 config.py 中的預設參數
@@ -387,6 +424,8 @@ def evaluate(model_path):
             print("[eval] HIGH_POLICY_MODE=baseline_topk, skip loading MODEL_HIGH.")
         elif HIGH_POLICY_MODE == "oracle":
             print(f"[eval] HIGH_POLICY_MODE=oracle, exhaustive C({env.candidate_n},{env.k_fixed})={len(env._ap_combos)} combos per interval.")
+        elif HIGH_POLICY_MODE == "best_front":
+            print("[eval] HIGH_POLICY_MODE=best_front, select AP pair with best fronthaul quality per user.")
         else:
             raise ValueError(f"Unsupported HIGH_POLICY_MODE: {HIGH_POLICY_MODE}")
     # 5. Evaluate with multiple seeds
@@ -589,6 +628,9 @@ def evaluate(model_path):
                         high_action = _oracle_search(
                             env, actor, act_space, obs, rnn_states, masks, n_steps=1
                         )
+                    elif HIGH_POLICY_MODE == "best_front":
+                        # Per-user heuristic: pick AP pair with best fronthaul quality.
+                        high_action = _best_front_action(env)
                     else:
                         # baseline_topk: fixed combo among top candidates, same for all users
                         if hasattr(env, "_ap_combos"):

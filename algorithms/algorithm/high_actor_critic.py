@@ -58,8 +58,10 @@ class HighActor(nn.Module):
             combo_j = [c[1] for c in self._ap_combos]
             self.register_buffer("_combo_i", torch.tensor(combo_i, dtype=torch.long))
             self.register_buffer("_combo_j", torch.tensor(combo_j, dtype=torch.long))
-            # User context indices: delay(16), uplink(17), front(18), satisfy(19), pos_x(20), pos_y(21), speed(22)
-            self.register_buffer("_user_ctx_indices", torch.tensor([16, 17, 18, 19, 20, 21, 22], dtype=torch.long))
+            # User context indices: delay, uplink, front, satisfy, pos_x, pos_y, speed
+            # These 7 fields start right after beta(cn) + mask(cn) = 2*cn
+            ctx_start = 2 * self._candidate_n
+            self.register_buffer("_user_ctx_indices", torch.tensor(list(range(ctx_start, ctx_start + 7)), dtype=torch.long))
             self._user_ctx_dim = 7
 
             # AP embedding MLP (shared across all APs)

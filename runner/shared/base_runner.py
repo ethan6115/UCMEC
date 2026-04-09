@@ -131,12 +131,17 @@ class Runner(object):
             high_args.use_set_encoder = True
             high_args.high_encoder_type = getattr(self.all_args, "high_encoder_type", "set")
             high_args.high_actor_type = getattr(self.all_args, "high_actor_type", "mlp")
-            high_args.candidate_n = getattr(self.all_args, "candidate_n", 8)
-            high_args.k_fixed = getattr(self.all_args, "k_fixed", 2)
-            high_args.num_cpus = getattr(self.all_args, "num_cpus", 3)
-            
-
             env0 = self.envs.envs[0] if hasattr(self.envs, "envs") else self.envs
+            # Unwrap DiscreteActionEnv to get the actual env with candidate_n etc.
+            raw_env = getattr(env0, "env", env0)
+            # Read candidate_n / k_fixed / num_cpus from env (authoritative source).
+            # Falls back to all_args then hardcoded default for backward compat.
+            high_args.candidate_n = getattr(raw_env, "candidate_n", getattr(self.all_args, "candidate_n", 8))
+            high_args.k_fixed = getattr(raw_env, "k_fixed", getattr(self.all_args, "k_fixed", 2))
+            high_args.num_cpus = getattr(raw_env, "K", getattr(self.all_args, "num_cpus", 3))
+            print(f"[base_runner] high_args: candidate_n={high_args.candidate_n}, k_fixed={high_args.k_fixed}, "
+                  f"num_cpus={high_args.num_cpus}, combos=C({high_args.candidate_n},{high_args.k_fixed})"
+                  f"={len(list(__import__('itertools').combinations(range(high_args.candidate_n), high_args.k_fixed)))}")
             # Reason: spaces are defined in env, runner only consumes them.
             self.high_obs_space = getattr(env0, "high_observation_space", None)
             self.high_action_space = getattr(env0, "high_action_space", None)
