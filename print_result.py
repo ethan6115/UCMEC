@@ -6,45 +6,26 @@ import os
 # ===== 1. 設定多個檔案路徑 =====
 # 可以把你要畫的 reward.mat 全部放在這個 list 裡
 mat_paths = [
+    
     #IPPO
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_randcluster\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster2\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster3\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_cluster5\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\run1\reward.mat',
-    #hierarchical peruser
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\reward.mat', 
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\run1\reward.mat', 
-    #stageBC
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1\reward.mat', 
-    #fix high
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_freezehigh\run1\reward.mat', 
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\newEnv\APselect\rmappo\hierarchical_freezehigh\run1\high_reward.mat',
-
-#nlos
-    #IPPO
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_noattn-mp_low\run2\reward.mat',
-    #hierarchical peruser
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\reward.mat', 
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\run1\reward.mat', 
-    #stageBC
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1\high_reward.mat',
-    #heuristic 
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\high_reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\high_reward.mat',
+    #r'results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn/run1/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/reward.mat',
+    r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/baseline_topk/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/baseline/reward.mat',
+    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/HDRL pair_scorer/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run2/reward.mat',
+    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/reward.mat',
     #noattn ablation
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn_lp\run1\high_reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run1\high_reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run2\high_reward.mat',
-    #r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run2\reward.mat',
+
     #pair scorer
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_pair_scorer\run1\high_reward.mat',
-    r'C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_pair_scorer\run2\high_reward.mat',
+    #r'results/hotspotEnv/nlos_cluster_7e-3/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run1/high_reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/Pair Scorer/high_reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run2/high_reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run3/high_reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/high_reward.mat',
+
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic/MLP/high_reward.mat',
+    
 
 ]
 

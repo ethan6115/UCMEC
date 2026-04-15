@@ -27,7 +27,9 @@ class MA_UCMEC_dyna_noncoop(object):
 
         # locations of users and APs
         self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
-        
+        self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
+
+        '''
         self.n_hotspot_clusters = 10
         self.hotspot_cluster_radius = 40
         # 先產生前 N_sim 個 hotspot AP
@@ -39,6 +41,7 @@ class MA_UCMEC_dyna_noncoop(object):
         # 再組成完整 N 個 AP（避免後面 for j in range(self.N) 越界）
         self.locations_aps = self.rng.random([self.N, 2]) * 900
         self.locations_aps[:self.N_sim, :] = aps_active
+        '''
 
 
         # mobility
@@ -85,7 +88,7 @@ class MA_UCMEC_dyna_noncoop(object):
         self.tau_c = 0.1  # coherence time = 100ms
         self.L = 140.7
         self.d_0 = 10  # path-loss distance threshold
-        self.d_1 = 200  # path-loss distance threshold，從50改為論文的15
+        self.d_1 = 50  # path-loss distance threshold，從50改為論文的15
         self.PL = np.zeros([self.M, self.N])  # path-loss in dB
         self.beta = np.zeros([self.M, self.N])  # large scale fading
         self.gamma = np.zeros([self.M, self.N])
@@ -137,7 +140,7 @@ class MA_UCMEC_dyna_noncoop(object):
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  2e9
         self.epsilon = 3e-3  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
-        self.alpha_los = 2  # path-loss exponent for LOS links
+        self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
         self.psi_los = 3  # Nakagami fading parameter for LOS links
         self.psi_nlos = 2  # Nakagami fading parameter for NLOS links

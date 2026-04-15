@@ -30,6 +30,9 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
                 # locations of users and APs
         self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
+        self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
+
+        '''
         self.n_hotspot_clusters = 10
         self.hotspot_cluster_radius = 40
         # 先產生前 N_sim 個 hotspot AP
@@ -41,7 +44,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # 再組成完整 N 個 AP（避免後面 for j in range(self.N) 越界）
         self.locations_aps = self.rng.random([self.N, 2]) * 900
         self.locations_aps[:self.N_sim, :] = aps_active
-
+        '''
         # mobility
         self.user_dest = None
         self.user_speed = None
@@ -88,7 +91,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.tau_c = 0.1  # coherence time = 100ms
         self.L = 140.7
         self.d_0 = 10  # path-loss distance threshold
-        self.d_1 = 200  # path-loss distance threshold，從50改為論文的15
+        self.d_1 = 50  # path-loss distance threshold，從50改為論文的15
         self.PL = np.zeros([self.M, self.N])  # path-loss in dB
         self.beta = np.zeros([self.M, self.N])  # large scale fading
         self.sigma_s = 8  # standard deviation of shadow fading (dB)
@@ -127,7 +130,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
         self.epsilon = 3e-3  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
-        self.alpha_los = 2  # path-loss exponent for LOS links
+        self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
         self.psi_los = 3  # Nakagami fading parameter for LOS links
         self.psi_nlos = 2  # Nakagami fading parameter for NLOS links
@@ -166,11 +169,11 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # parameter init
         self.n_agents = self.M_sim
         self.agent_num = self.n_agents
-        self.mask_local = True  # True=9 actions (no local), False=10 actions (with local)
+        self.mask_local = False  # True=9 actions (no local), False=10 actions (with local)
         # Low-level heuristic mode for high-level pretraining:
         #   - CPU is selected by argmax(cpu_front_quality)
         #   - power can be fixed max or follow low-level action index
-        self.low_heuristic_only = True
+        self.low_heuristic_only = False
         self.low_heuristic_cpu = True
         self.low_heuristic_power = "max"  # "max" | "follow_action"
         self.low_heuristic_power_idx = 2  # for 3-level power index {0,1,2}, 2 means max

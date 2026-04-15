@@ -8,8 +8,8 @@ import copy
 current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 # Toggle here to switch evaluation mode without CLI args.
-USE_HIERARCHICAL = True
-PER_USER = True
+USE_HIERARCHICAL = False
+PER_USER = False
 HIERARCHICAL_INTERVAL = 10
 #HIERARCHICAL_INTERVAL = 10
 USE_RECURRENT = True
@@ -37,47 +37,31 @@ def make_env(seed):
         else:
             return MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True, seed=seed)
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
-#IPPO
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\noncoop_rnn\hotspot_randcluster\models/actor_999.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2\models/actor_999.pt"
-#peruser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_high.pt"
-#stageBC
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\peruser_clustersize\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_high.pt"
 
 #nlos
-MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\noncoop_rnn\hotspot_cluster2_cpuobs8\models/actor_999.pt"
-#nlos hierarchical peruser
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_v1\hotspot_hierarchical_peruser\models/actor_high.pt"
-#hierarchical local
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_local\run1\models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_local\run1\models/actor_high.pt"
-#hierarchical heuristic low
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\models/actor_999.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run2\models/actor_high.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\models/actor_499.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic\run5\models/actor_high.pt"
-#nlos noattn ablation
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn_lp\run1\models/actor_high.pt"
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_noattn-mp_low\run2\models/actor_800.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_noattn-mp\run1\models/actor_high.pt"
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
+
+MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
+
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
 # new actor
-MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_heuristic_pair_scorer\run2\models/actor_high.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run2/models/actor_high.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run1/models/actor_high.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic/run1/models/actor_high.pt"
+#highlow
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/models/actor_499.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run2/models/actor_high.pt"
 
-#stageBC
-#MODEL_LOW = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_700.pt"
-#MODEL_HIGH = r"C:\DCNLab\UCMEC\UCMEC-mmWave-Fronthaul\results\hotspotEnv\nlos_cluster\rmappo\hierarchical_hotspot_stageBC\run1/models/actor_high.pt"
-
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/run1/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
     #from envs.MA_UCMEC_dyna_noncoop_cluster_rand import MA_UCMEC_dyna_noncoop_cluster_rand as MA_UCMEC_dyna_noncoop
-    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs as MA_UCMEC_dyna_noncoop
+    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop as MA_UCMEC_dyna_noncoop
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front import MA_UCMEC_dyna_noncoop_hierarchical_alluser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_testpara import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
