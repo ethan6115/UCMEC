@@ -27,11 +27,22 @@ class HighReplayBuffer(object):
         )
         self.obs = np.zeros_like(self.share_obs)
 
+        self.num_users = obs_shape[0]
+        # pair_scorer uses per-user hidden states; mlp uses a single shared state
+        self.actor_rnn_slots = (
+            self.num_users if getattr(args, 'high_actor_type', 'mlp') == 'pair_scorer' else 1
+        )
         self.rnn_states = np.zeros(
-            (self.episode_length + 1, self.n_rollout_threads, 1, self.recurrent_N, self.hidden_size),
+            (self.episode_length + 1, self.n_rollout_threads,
+             self.actor_rnn_slots, self.recurrent_N, self.hidden_size),
             dtype=np.float32,
         )
-        self.rnn_states_critic = np.zeros_like(self.rnn_states)
+        # critic always uses a single global hidden state
+        self.rnn_states_critic = np.zeros(
+            (self.episode_length + 1, self.n_rollout_threads,
+             1, self.recurrent_N, self.hidden_size),
+            dtype=np.float32,
+        )
 
         self.value_preds = np.zeros(
             (self.episode_length + 1, self.n_rollout_threads, self.credit_users, 1), dtype=np.float32
@@ -182,7 +193,11 @@ class HighReplayBuffer(object):
 
         share_obs = self.share_obs[:-1].reshape(batch_size, *self.share_obs.shape[2:])
         obs = self.obs[:-1].reshape(batch_size, *self.obs.shape[2:])
-        rnn_states = self.rnn_states[:-1].reshape(batch_size, *self.rnn_states.shape[3:])
+        if self.actor_rnn_slots > 1:
+            rnn_states = self.rnn_states[:-1].reshape(
+                batch_size, self.actor_rnn_slots, self.recurrent_N, self.hidden_size)
+        else:
+            rnn_states = self.rnn_states[:-1].reshape(batch_size, *self.rnn_states.shape[3:])
         rnn_states_critic = self.rnn_states_critic[:-1].reshape(batch_size, *self.rnn_states_critic.shape[3:])
         actions = self.actions.reshape(batch_size, num_users, action_dim)
         if self.use_high_peruser_credit:
@@ -269,7 +284,12 @@ class HighReplayBuffer(object):
         else:
             advantages = advantages.transpose(1, 0, 2, 3).reshape(batch_size, 1)
             advantages_user = np.broadcast_to(advantages[:, None, :], (batch_size, num_users, 1))
-        rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(batch_size, 1, self.recurrent_N, self.hidden_size)
+        if self.actor_rnn_slots > 1:
+            rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(
+                batch_size, self.actor_rnn_slots, self.recurrent_N, self.hidden_size)
+        else:
+            rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(
+                batch_size, 1, self.recurrent_N, self.hidden_size)
         rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 0, 2, 3, 4).reshape(
             batch_size, 1, self.recurrent_N, self.hidden_size
         )
@@ -312,8 +332,13 @@ class HighReplayBuffer(object):
             old_action_log_probs_batch = np.stack(old_action_log_probs_batch, axis=1)
             adv_targ = np.stack(adv_targ, axis=1)
 
-            rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
-            rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
+            if self.actor_rnn_slots > 1:
+                rnn_states_batch = np.stack(rnn_states_batch).reshape(
+                    N, self.actor_rnn_slots, self.recurrent_N, self.hidden_size)
+            else:
+                rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
+            rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(
+                N, *self.rnn_states_critic.shape[3:])
 
             share_obs_batch = _flatten(L, N, share_obs_batch)
             obs_batch = _flatten(L, N, obs_batch)
@@ -429,8 +454,13 @@ class HighReplayBuffer(object):
             old_action_log_probs_batch = np.stack(old_action_log_probs_batch, axis=1)
             adv_targ = np.stack(adv_targ, axis=1)
 
-            rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
-            rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
+            if self.actor_rnn_slots > 1:
+                rnn_states_batch = np.stack(rnn_states_batch).reshape(
+                    N, self.actor_rnn_slots, self.recurrent_N, self.hidden_size)
+            else:
+                rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
+            rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(
+                N, *self.rnn_states_critic.shape[3:])
 
             share_obs_batch = _flatten(T, N, share_obs_batch)
             obs_batch = _flatten(T, N, obs_batch)

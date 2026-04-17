@@ -135,8 +135,8 @@ class HighActor(nn.Module):
         # User context
         user_ctx = obs[:, :, self._user_ctx_indices]  # [B, M, 7]
         user_ctx_expand = user_ctx.unsqueeze(2).expand(B, M, len(self._ap_combos), self._user_ctx_dim)
-        # Global context from AP embeds
-        g = ap_embeds.mean(dim=2).mean(dim=1)  # [B, 32]  mean over APs then users
+        # Global context from AP embeds: per-user mean over APs only (decentralized)
+        g = ap_embeds.mean(dim=2)  # [B, M, 32]  mean over APs, keep user dim
         return pair_repr, user_ctx_expand, g, ap_embeds
 
     def forward(self, obs, rnn_states, masks, available_actions=None, deterministic=False):
@@ -148,13 +148,21 @@ class HighActor(nn.Module):
             pair_repr, user_ctx_expand, g, _ = self._compute_pair_logits(obs)
             B, M = obs.shape[0], obs.shape[1]
             num_combos = len(self._ap_combos)
-            g = self.g_pre(g)  # [B, 32] -> [B, hidden_size]
+            # g: [B, M, 32] -> flatten to [B*M, 32] for shared MLP/RNN
+            g_flat = g.reshape(B * M, -1)                          # [B*M, 32]
+            g_flat = self.g_pre(g_flat)                            # [B*M, hidden_size]
             if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-                g, rnn_states = self.rnn(g, rnn_states, masks)
-            g_proj = self.g_proj(g)  # [B, hidden_size] -> [B, 16]
-            g_expand = g_proj.unsqueeze(1).unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
-            scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)  # [B, M, 28, 119]
-            logits = self.scorer(scorer_input).squeeze(-1)  # [B, M, 28]
+                # rnn_states: rollout=[B, M, recN, H], training=[N, M, recN, H]
+                N_rnn = rnn_states.shape[0]
+                rnn_states_flat = rnn_states.reshape(N_rnn * M, *rnn_states.shape[2:])  # [N_rnn*M, recN, H]
+                # masks: [B, 1] -> expand per-user -> [B*M, 1]
+                masks_flat = masks.unsqueeze(1).expand(B, M, 1).reshape(B * M, 1)
+                g_flat, rnn_states_out = self.rnn(g_flat, rnn_states_flat, masks_flat)
+                rnn_states = rnn_states_out.reshape(N_rnn, M, *rnn_states_out.shape[1:])  # [N_rnn, M, recN, H]
+            g_proj = self.g_proj(g_flat).reshape(B, M, -1)         # [B, M, g_proj_dim]
+            g_expand = g_proj.unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
+            scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)  # [B, M, 45, 119]
+            logits = self.scorer(scorer_input).squeeze(-1)          # [B, M, 45]
         else:
             h_ctx, g = self.encoder(obs)
             if self._use_naive_recurrent_policy or self._use_recurrent_policy:
@@ -198,11 +206,15 @@ class HighActor(nn.Module):
             pair_repr, user_ctx_expand, g, _ = self._compute_pair_logits(obs)
             B, M = obs.shape[0], obs.shape[1]
             num_combos = len(self._ap_combos)
-            g = self.g_pre(g)  # [B, 32] -> [B, hidden_size]
+            g_flat = g.reshape(B * M, -1)                          # [B*M, 32]
+            g_flat = self.g_pre(g_flat)                            # [B*M, hidden_size]
             if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-                g, _ = self.rnn(g, rnn_states, masks)
-            g_proj = self.g_proj(g)
-            g_expand = g_proj.unsqueeze(1).unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
+                N_rnn = rnn_states.shape[0]
+                rnn_states_flat = rnn_states.reshape(N_rnn * M, *rnn_states.shape[2:])
+                masks_flat = masks.unsqueeze(1).expand(B, M, 1).reshape(B * M, 1)
+                g_flat, _ = self.rnn(g_flat, rnn_states_flat, masks_flat)
+            g_proj = self.g_proj(g_flat).reshape(B, M, -1)
+            g_expand = g_proj.unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
             scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)
             logits = self.scorer(scorer_input).squeeze(-1)
         else:

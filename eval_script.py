@@ -8,8 +8,8 @@ import copy
 current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 # Toggle here to switch evaluation mode without CLI args.
-USE_HIERARCHICAL = False
-PER_USER = False
+USE_HIERARCHICAL = True
+PER_USER = True
 HIERARCHICAL_INTERVAL = 10
 #HIERARCHICAL_INTERVAL = 10
 USE_RECURRENT = True
@@ -18,7 +18,7 @@ USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = "baseline_topk"  # "trained" | "baseline_topk" | "oracle" | "best_front"
+HIGH_POLICY_MODE = "trained"  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
 
 SEEDS = [18, 62, 53, 14, 58,
@@ -42,7 +42,7 @@ def make_env(seed):
 #MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run1/models/actor_499.pt"
 #MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
 
-MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
 
 #MODEL_LOW = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn/run1/models/actor_499.pt"
 #MODEL_LOW = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
@@ -52,9 +52,20 @@ MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1
 #MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic/run1/models/actor_high.pt"
 #highlow
 #MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/models/actor_499.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run2/models/actor_high.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/models/actor_high.pt"
+#nopair
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/models/actor_499.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/models/actor_high.pt"
 
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/run1/models/actor_high.pt"
+#new g highlow
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/models/actor_499.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/models/actor_high.pt"
+
+#low mappo
+MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
+MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_high.pt"
+#low mappo only low
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
@@ -575,7 +586,22 @@ def evaluate(model_path):
             dones = [False] * env.n_agents
             if USE_HIERARCHICAL:
                 if HIGH_POLICY_MODE == "trained":
-                    high_rnn_states = np.zeros((1, high_args.recurrent_N, high_args.hidden_size), dtype=np.float32)
+                    # pair_scorer uses per-user RNN: shape [1, M, recN, H].
+                    # mlp / R_Actor use shared RNN: shape [1, recN, H] (old behaviour).
+                    _pair_scorer_eval = (
+                        PER_USER
+                        and getattr(high_args, "high_actor_type", "mlp") == "pair_scorer"
+                    )
+                    if _pair_scorer_eval:
+                        high_rnn_states = np.zeros(
+                            (1, env.M_sim, high_args.recurrent_N, high_args.hidden_size),
+                            dtype=np.float32,
+                        )
+                    else:
+                        high_rnn_states = np.zeros(
+                            (1, high_args.recurrent_N, high_args.hidden_size),
+                            dtype=np.float32,
+                        )
                     high_masks = np.ones((1, 1), dtype=np.float32)
                 attn_max_list = []
                 attn_entropy_list = []

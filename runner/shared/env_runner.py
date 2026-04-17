@@ -35,6 +35,11 @@ class EnvRunner(Runner):
         self.warmup()
 
         start = time.time()
+        # True when pair_scorer is used: actor rnn_states are [B, M, recN, H] not [B, 1, recN, H]
+        _per_user_actor_rnn = (
+            getattr(self.all_args, 'high_actor_type', 'mlp') == 'pair_scorer'
+            and self.use_high_peruser
+        )
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
         reward_list = np.zeros([episodes, 1])
         high_reward_list = np.zeros([episodes, 1]) if self.use_hierarchical else None
@@ -131,7 +136,10 @@ class EnvRunner(Runner):
                     value_h, action_h, logp_h, rnn_h, rnn_hc = self.high_trainer.policy.get_actions(
                         global_obs, global_obs,
                         # Reason: use high_buffer's own step counter to avoid index drift.
-                        self.high_buffer.rnn_states[self.high_buffer.step].squeeze(1),
+                        # pair_scorer: [B, M, recN, H]; mlp: squeeze to [B, recN, H]
+                        self.high_buffer.rnn_states[self.high_buffer.step]
+                            if _per_user_actor_rnn
+                            else self.high_buffer.rnn_states[self.high_buffer.step].squeeze(1),
                         self.high_buffer.rnn_states_critic[self.high_buffer.step].squeeze(1),
                         high_masks_in.squeeze(1),
                         deterministic=self.freeze_high,
@@ -301,7 +309,8 @@ class EnvRunner(Runner):
                             self.high_buffer.insert(
                                 t["global_obs"],
                                 t["global_obs"],
-                                t["rnn_h"][:, None, ...],
+                                # pair_scorer: rnn_h already [B, M, recN, H]; mlp: add slot dim
+                                t["rnn_h"] if _per_user_actor_rnn else t["rnn_h"][:, None, ...],
                                 t["rnn_hc"][:, None, ...],
                                 t["action_h"],
                                 t["logp_h"],

@@ -10,11 +10,18 @@ mat_paths = [
     #IPPO
     #r'results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn/run1/reward.mat',
     #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/baseline_topk/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
+    # hierarchical
     #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/baseline/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/HDRL pair_scorer/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/reward.mat',
     #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run2/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/reward.mat',
+    # low 無pair scorer
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/reward.mat',
+
+
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run1/reward.mat',
+    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run4/reward.mat',
     #noattn ablation
 
     #pair scorer
@@ -23,10 +30,17 @@ mat_paths = [
     #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run2/high_reward.mat',
     #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run3/high_reward.mat',
     #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/high_reward.mat',
+    
 
     #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic/MLP/high_reward.mat',
     
-
+    #low mappo實驗
+    #hierachical
+    r'results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run1/reward.mat',
+    r'results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/reward.mat',
+    r'results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/reward.mat',
+    #IPPO
+    #r'results/hotspotEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/reward.mat',
 ]
 
 def load_reward(file_path):
@@ -101,4 +115,4 @@ def plot_rewards(file_paths, window_size=5, show_raw=False):
     # plt.savefig('training_result_multi.png')
 
 if __name__ == "__main__":
-    plot_rewards(mat_paths, window_size=20, show_raw=False)
+    plot_rewards(mat_paths, window_size=10, show_raw=False)
