@@ -81,7 +81,7 @@ try:
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
 
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_testpara import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min as MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor

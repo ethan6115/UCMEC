@@ -1,7 +1,7 @@
 import numpy as np
 from gym import spaces
 
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow import (
+from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import (
     MA_UCMEC_dyna_noncoop_hierarchical_peruser,
 )
 

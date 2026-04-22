@@ -30,17 +30,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
                 # locations of users and APs
         self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
-        self.n_hotspot_clusters = 10
-        self.hotspot_cluster_radius = 40
-        # 先產生前 N_sim 個 hotspot AP
-        aps_active = self._place_hotspot_aps(
-            n_clusters=self.n_hotspot_clusters,
-            cluster_radius=self.hotspot_cluster_radius,
-        )  # shape: (N_sim, 2)
-
-        # 再組成完整 N 個 AP（避免後面 for j in range(self.N) 越界）
-        self.locations_aps = self.rng.random([self.N, 2]) * 900
-        self.locations_aps[:self.N_sim, :] = aps_active
+        self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
 
         # mobility
         self.user_dest = None
@@ -88,7 +78,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.tau_c = 0.1  # coherence time = 100ms
         self.L = 140.7
         self.d_0 = 10  # path-loss distance threshold
-        self.d_1 = 200  # path-loss distance threshold，從50改為論文的15
+        self.d_1 = 50  # path-loss distance threshold，從50改為論文的15
         self.PL = np.zeros([self.M, self.N])  # path-loss in dB
         self.beta = np.zeros([self.M, self.N])  # large scale fading
         self.sigma_s = 8  # standard deviation of shadow fading (dB)
@@ -127,7 +117,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
         self.epsilon = 3e-3  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
-        self.alpha_los = 2  # path-loss exponent for LOS links
+        self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
         self.psi_los = 3  # Nakagami fading parameter for LOS links
         self.psi_nlos = 2  # Nakagami fading parameter for NLOS links
@@ -270,24 +260,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             self.opt_params.append((p_tasks, p_local, p_uplink))
             self.opt_vars.append(C_scaled)
 
-    def _place_hotspot_aps(self, n_clusters=5, cluster_radius=80):
-        """Place the first N_sim APs around random hotspot centers."""
-        self.hotspot_centers = self.rng.random((n_clusters, 2)) * 800 + 50
-        aps_per_cluster = self.N_sim // n_clusters
-        locations = []
-
-        for c_idx in range(n_clusters):
-            cx, cy = self.hotspot_centers[c_idx]
-            n_ap = aps_per_cluster if c_idx < n_clusters - 1 else self.N_sim - len(locations)
-
-            for _ in range(n_ap):
-                angle = self.rng.uniform(0, 2 * np.pi)
-                r = cluster_radius * self.rng.uniform(0.7, 1.3)
-                x = np.clip(cx + r * np.cos(angle), 0, 900)
-                y = np.clip(cy + r * np.sin(angle), 0, 900)
-                locations.append([x, y])
-
-        return np.array(locations)
 
     def compute_interval_reward(self):
         """Compute reward from accumulated interval stats.
