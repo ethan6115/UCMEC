@@ -29,21 +29,6 @@ class MA_UCMEC_dyna_coop_nlos(object):
         self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
         self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
 
-        '''
-        self.n_hotspot_clusters = 10
-        self.hotspot_cluster_radius = 40
-        # 先產生前 N_sim 個 hotspot AP
-        aps_active = self._place_hotspot_aps(
-            n_clusters=self.n_hotspot_clusters,
-            cluster_radius=self.hotspot_cluster_radius,
-        )  # shape: (N_sim, 2)
-
-        # 再組成完整 N 個 AP（避免後面 for j in range(self.N) 越界）
-        self.locations_aps = self.rng.random([self.N, 2]) * 900
-        self.locations_aps[:self.N_sim, :] = aps_active
-        '''
-
-
         # mobility
         self.user_dest = None
         self.user_speed = None
@@ -245,38 +230,6 @@ class MA_UCMEC_dyna_coop_nlos(object):
             self.opt_params.append((p_tasks, p_local, p_uplink))
             self.opt_vars.append(C_scaled)
 
-    def _place_hotspot_aps(self, n_clusters=5, cluster_radius=80):
-        """
-        Matérn Cluster Process：
-        1. 先隨機選 n_clusters 個熱點中心
-        2. 每個中心周圍的圓環內（ring）密集撒 AP
-        用圓環而非圓面，讓 user 在中心時被均勻包圍
-        
-        n_clusters：熱點數量，對應體育館/廣場等場景
-        cluster_radius：圓環半徑，決定 user 到 AP 的典型距離
-        """
-        # 熱點中心（存起來給 user 移動模型用）
-        self.hotspot_centers = self.rng.random((n_clusters, 2)) * 800 + 50
-        # +100 避免熱點太靠近邊界，讓圓環完整
-
-        aps_per_cluster = self.N_sim // n_clusters  # 每個熱點分配的 AP 數
-        locations = []
-
-        for c_idx in range(n_clusters):
-            cx, cy = self.hotspot_centers[c_idx]
-            n_ap = aps_per_cluster if c_idx < n_clusters - 1 else self.N_sim - len(locations)
-
-            for _ in range(n_ap):
-                # 在圓環上均勻撒點（角度均勻，半徑略有抖動）
-                angle  = self.rng.uniform(0, 2 * np.pi)
-                # 半徑在 [radius*0.7, radius*1.3] 之間有隨機抖動
-                # 讓 AP 不是完美圓形，增加隨機性
-                r = cluster_radius * self.rng.uniform(0.7, 1.3)
-                x = np.clip(cx + r * np.cos(angle), 0, 900)
-                y = np.clip(cy + r * np.sin(angle), 0, 900)
-                locations.append([x, y])
-
-        return np.array(locations)
 
     def action_mapping(self, action_agent):
         omega_agent = 0
@@ -777,9 +730,10 @@ class MA_UCMEC_dyna_coop_nlos(object):
         else:
             done = [0] * self.M_sim
 
+        avg_system_delay = np.mean(total_delay_clip)
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
+            reward[i, 0] = -0.9 * avg_system_delay + 0.1 * (self.tau_c - avg_system_delay)  #shared reward
         
         # === 每個 time step 的統計量 (之後會塞進 info) ===
         # Average Total Delay (所有 user)

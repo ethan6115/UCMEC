@@ -58,23 +58,31 @@ def make_env(seed):
 #MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/models/actor_high.pt"
 
 #new g highlow
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/models/actor_499.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/models/actor_high.pt"
+MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run5/models/actor_499.pt"
+MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run5/models/actor_high.pt"
 
 #low mappo
-MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
-MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_high.pt"
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_high.pt"
 #low mappo only low
 #MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
+
+#low ablation fix power
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_minpower/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_maxpower/run1/models/actor_499.pt"
+#hierarchical ablation fix power
+#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/hierarchical_heuristic_pair_scorer_highlow_minpower/minpower/models/actor_499.pt"
+#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/hierarchical_heuristic_pair_scorer_highlow_minpower/minpower/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
     #from envs.MA_UCMEC_dyna_noncoop_cluster_rand import MA_UCMEC_dyna_noncoop_cluster_rand as MA_UCMEC_dyna_noncoop
-    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop as MA_UCMEC_dyna_noncoop
+    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower_min as MA_UCMEC_dyna_noncoop
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
-    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser import MA_UCMEC_dyna_noncoop_hierarchical_alluser
+
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_testpara import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min as MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
