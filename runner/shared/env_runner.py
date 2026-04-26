@@ -29,6 +29,29 @@ class EnvRunner(Runner):
         self._high_reward_count = 0
         self._high_pending = False
         self._high_transition = {}
+
+    def _get_timeout_env_mask(self, dones, infos):
+        """Return [n_threads] bool mask: True when done is from time-limit truncation."""
+        timeout_env_mask = np.zeros((self.n_rollout_threads,), dtype=bool)
+        for env_i in range(self.n_rollout_threads):
+            if not np.all(dones[env_i]):
+                continue
+            env_infos = infos[env_i] if env_i < len(infos) else None
+            if env_infos is None:
+                continue
+            bad_flags = []
+            if isinstance(env_infos, dict):
+                bad_flags.append(bool(env_infos.get("bad_transition", False)))
+            else:
+                try:
+                    for agent_i in range(min(self.num_agents, len(env_infos))):
+                        info_item = env_infos[agent_i]
+                        if isinstance(info_item, dict):
+                            bad_flags.append(bool(info_item.get("bad_transition", False)))
+                except TypeError:
+                    pass
+            timeout_env_mask[env_i] = any(bad_flags)
+        return timeout_env_mask
         
 
     def run(self):
@@ -292,12 +315,17 @@ class EnvRunner(Runner):
                     self._high_reward_count += 1
                     if interval_end or episode_end:
                         sum_reward = self._high_reward_acc
+                        timeout_env_mask = self._get_timeout_env_mask(dones, infos)
                         if self.use_high_peruser and self.use_high_peruser_credit:
                             masks_h = np.ones((self.n_rollout_threads, num_high_users, 1), dtype=np.float32)
                             masks_h[dones.all(axis=1), :, :] = 0.0
+                            bad_masks_h = np.ones((self.n_rollout_threads, num_high_users, 1), dtype=np.float32)
+                            bad_masks_h[timeout_env_mask, :, :] = 0.0
                         else:
                             masks_h = np.ones((self.n_rollout_threads, 1, 1), dtype=np.float32)
                             masks_h[dones.all(axis=1)] = 0.0
+                            bad_masks_h = np.ones((self.n_rollout_threads, 1, 1), dtype=np.float32)
+                            bad_masks_h[timeout_env_mask] = 0.0
                         t = self._high_transition
                         if self.use_high_peruser:
                             value_h = t["value_h"]
@@ -317,6 +345,7 @@ class EnvRunner(Runner):
                                 value_h,
                                 sum_reward.reshape(self.n_rollout_threads, -1, 1),
                                 masks_h,
+                                bad_masks=bad_masks_h,
                             )
                         else:
                             self.high_buffer.insert(
@@ -327,7 +356,8 @@ class EnvRunner(Runner):
                                 t["action_h"][:, None, :], t["logp_h"][:, None, :],
                                 t["value_h"][:, None, :],
                                 sum_reward[:, None, :],
-                                masks_h
+                                masks_h,
+                                bad_masks=bad_masks_h,
                             )
                         # Log/save high-level reward on transition times only.
                         # This matches the reward actually inserted into high_buffer.
@@ -564,6 +594,12 @@ class EnvRunner(Runner):
         )
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+        bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        timeout_env_mask = self._get_timeout_env_mask(dones, infos)
+        for env_i in range(self.n_rollout_threads):
+            if timeout_env_mask[env_i]:
+                done_agents = np.asarray(dones[env_i]).astype(bool)
+                bad_masks[env_i, done_agents, 0] = 0.0
 
         if self.use_centralized_V:
             share_obs = obs.reshape(self.n_rollout_threads, -1)
@@ -581,6 +617,7 @@ class EnvRunner(Runner):
             values,
             rewards,
             masks,
+            bad_masks=bad_masks,
         )
 
     @torch.no_grad()

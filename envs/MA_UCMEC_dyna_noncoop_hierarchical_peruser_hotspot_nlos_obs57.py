@@ -170,8 +170,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # High-level action: per-user AP-combo index.
         self.high_action_dim = len(self._ap_combos)
         self.high_action_space = spaces.MultiDiscrete([self.high_action_dim] * self.M_sim)
-        # obs = beta(cn) + ap_mask(cn) + delay/uplink/front/satisfy(4)
-        #       + pos(2) + speed(1) + front_stats(K*cn)
+        # obs = beta(cn) + ap_mask(cn) + delay/uplink/front(3)
+        #       + pos(2) + speed(2) + front_stats(K*cn)
         # Removed low-behavior features from high-level obs:
         #   offload_ratio(1), cpu_pref(K), local_pref(1)
         self.high_obs_dim = (self.K + 2) * self.candidate_n + 7
@@ -513,10 +513,17 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         delay_norm = (self._segment_avg_delay / self.max_delay).reshape(self.M_sim, 1)
         uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
         front_norm = (self._segment_avg_front / self.max_delay).reshape(self.M_sim, 1)
-        offload_satisfy = self._segment_offload_success_ratio.reshape(self.M_sim, 1).astype(np.float32)
         pos_norm = (self.locations_users[:self.M_sim, :2] / 900.0).astype(np.float32)
         max_speed = 20 * self.tau_c
-        speed_norm = (self.user_speed[:self.M_sim, 0] / max_speed).reshape(self.M_sim, 1).astype(np.float32)
+        # Directional velocity (vx, vy), normalized by max speed to roughly [-1, 1].
+        if self.is_mobile and self.user_dest is not None and self.user_speed is not None:
+            vel_vec = (self.user_dest[:self.M_sim, :2] - self.locations_users[:self.M_sim, :2]).astype(np.float32)
+            vel_dist = np.linalg.norm(vel_vec, axis=1, keepdims=True)
+            vel_dir = vel_vec / np.maximum(vel_dist, 1e-6)
+            speed_mag_norm = (self.user_speed[:self.M_sim, 0:1] / max_speed).astype(np.float32)
+            speed_norm = (vel_dir * speed_mag_norm).astype(np.float32)
+        else:
+            speed_norm = np.zeros((self.M_sim, 2), dtype=np.float32)
         obs = np.concatenate(
             [
                 beta_norm,
@@ -524,7 +531,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                 delay_norm,
                 uplink_norm,
                 front_norm,
-                offload_satisfy,
                 pos_norm,
                 speed_norm,
                 front_stats,
@@ -913,6 +919,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             done = [1] * self.M_sim
         else:
             done = [0] * self.M_sim
+        is_time_limit_truncation = bool(self.step_num >= 200)
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
@@ -1022,6 +1029,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             "avg_uplink_rate_Mbps": avg_uplink_rate_Mbps,
             "num_offloading_users": active,
             "front_log_cap_hit_ratio": front_log_cap_hit_ratio,
+            # Time-limit truncation marker for replay-buffer bad_masks.
+            "bad_transition": is_time_limit_truncation,
         }
         for i in range(self.agent_num):
             raw_obs = np.array([    #obs改為一次全部正規化
@@ -1039,12 +1048,12 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
             sub_agent_reward.append(reward[i])
             sub_agent_done.append(done[i])
-            #sub_agent_info.append({})
-            # 只在第 0 個 agent 的 info 塞統計量，其它保持空 dict
+            # 只在第 0 個 agent 的 info 塞統計量；所有 agent 都保留 bad_transition。
             if i == 0:
-                sub_agent_info.append(metrics_info)
+                info_i = dict(metrics_info)
             else:
-                sub_agent_info.append({})
+                info_i = {"bad_transition": is_time_limit_truncation}
+            sub_agent_info.append(info_i)
 
         self._channel_ready = False
         return [sub_agent_obs, sub_agent_reward, sub_agent_done, sub_agent_info]

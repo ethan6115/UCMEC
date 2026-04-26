@@ -431,6 +431,12 @@ def get_config():
                         choices=["mlp", "pair_scorer"],
                         help="high-level actor head: 'mlp' (original flat), "
                              "'pair_scorer' (structured AP pair scoring)")
+    parser.add_argument("--high_pair_repr", type=str, default="sdp",
+                        choices=["sdp", "concat"],
+                        help="pair_scorer pair interaction: 'sdp' (sum+|diff|+prod, 96D), "
+                             "'concat' (concat e_i+e_j then linear project to 96D)")
+    parser.add_argument("--high_no_global_ctx", action="store_true", default=False,
+                        help="pair_scorer ablation: remove global context g branch from scorer input")
     parser.add_argument("--high_entropy_coef", type=float, default=0.01, help="high-level entropy coef")
     parser.add_argument("--high_value_loss_coef", type=float, default=1.0, help="high-level value loss coef")
     parser.add_argument("--high_max_grad_norm", type=float, default=0.5, help="high-level max grad norm")

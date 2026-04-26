@@ -6,55 +6,29 @@ import os
 # ===== 1. 設定多個檔案路徑 =====
 # 可以把你要畫的 reward.mat 全部放在這個 list 裡
 mat_paths = [
-    
+    #舊的
     #IPPO
-    #r'results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/reward.mat',
     #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run2/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run3/reward.mat',
-    # hierarchical
-    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/baseline/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run2/reward.mat',
+    #hierarchical highlow
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run1/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run2/reward.mat',
+    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run3/reward.mat',
 
-    # low 無pair scorer
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/run1/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/run2/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/run3/reward.mat',
+    #新的
+    #IPPO
+    r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run2/reward.mat',
+    r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run3/reward.mat',
+    #hierarchical highlow
+    r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run2/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run3/reward.mat',
+    #w/o pair scorer
+    #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_highlow/run1/reward.mat',
 
-    #pair scorer highlow
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/proposed_method/reward.mat',
-    r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run4/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run5/reward.mat',
-
-    #pair scorer(舊的，共享g)
-    #r'results/hotspotEnv/nlos_cluster_7e-3/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run1/high_reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/Pair Scorer/high_reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run2/high_reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run3/high_reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/high_reward.mat',
-    
-
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic/MLP/high_reward.mat',
-    
-    #low mappo實驗
-    #hierachical
-    #r'results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run2/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/reward.mat',
-    #MAPPO low only
-    #r'results/hotspotEnv/nlos_cluster_mappo/rmappo/coop_rnn/MAPPO_sharedreward/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster_mappo/rmappo/per_reward_wrong/coop_rnn/MAPPO_perreward/reward.mat',
-
-    #low ablation fix power
-    #r'results/hotspotEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_minpower/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_maxpower/run1/reward.mat',
-    ## hierarchical ablation fix power
-    #r'results/hotspotEnv/nlos_cluster_low_ablation/rmappo/hierarchical_heuristic_pair_scorer_highlow_minpower/minpower/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster_low_ablation/rmappo/hierarchical_heuristic_pair_scorer_highlow_maxpower/maxpower/reward.mat',
+    #r'results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run2/reward.mat',
+    #r'results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/reward.mat',
 ]
 
 def load_reward(file_path):

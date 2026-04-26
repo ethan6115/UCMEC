@@ -963,6 +963,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             done = [1] * self.M_sim
         else:
             done = [0] * self.M_sim
+        is_time_limit_truncation = bool(self.step_num >= 200)
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
@@ -1072,6 +1073,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             "avg_uplink_rate_Mbps": avg_uplink_rate_Mbps,
             "num_offloading_users": active,
             "front_log_cap_hit_ratio": front_log_cap_hit_ratio,
+            # Time-limit truncation marker for replay-buffer bad_masks.
+            "bad_transition": is_time_limit_truncation,
         }
         for i in range(self.agent_num):
             raw_obs = np.array([    #obs改為一次全部正規化
@@ -1089,12 +1092,12 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
             sub_agent_reward.append(reward[i])
             sub_agent_done.append(done[i])
-            #sub_agent_info.append({})
-            # 只在第 0 個 agent 的 info 塞統計量，其它保持空 dict
+            # 只在第 0 個 agent 的 info 塞統計量；所有 agent 都保留 bad_transition。
             if i == 0:
-                sub_agent_info.append(metrics_info)
+                info_i = dict(metrics_info)
             else:
-                sub_agent_info.append({})
+                info_i = {"bad_transition": is_time_limit_truncation}
+            sub_agent_info.append(info_i)
 
         self._channel_ready = False
         return [sub_agent_obs, sub_agent_reward, sub_agent_done, sub_agent_info]

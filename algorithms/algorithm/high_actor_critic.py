@@ -40,6 +40,9 @@ class HighActor(nn.Module):
             self._k_fixed = getattr(args, "k_fixed", 2)
             self._num_cpus = getattr(args, "num_cpus", 3)
             self._ap_combos = list(itertools.combinations(range(self._candidate_n), self._k_fixed))
+            # Ablation flags
+            self._pair_repr_type = getattr(args, "high_pair_repr", "sdp")   # "sdp" | "concat"
+            self._use_global_ctx = not getattr(args, "high_no_global_ctx", False)
             # Pre-compute obs indices for per-AP features: [beta, mask, front_cpu0, front_cpu1, front_cpu2]
             ap_feat_dim = 2 + self._num_cpus  # beta + mask + front per cpu
             self._ap_feat_dim = ap_feat_dim
@@ -64,6 +67,15 @@ class HighActor(nn.Module):
             self.register_buffer("_user_ctx_indices", torch.tensor(list(range(ctx_start, ctx_start + 7)), dtype=torch.long))
             self._user_ctx_dim = 7
 
+            assert len(self._ap_combos) == self.action_dim, (
+                f"ap_combos ({len(self._ap_combos)}) != action_dim ({self.action_dim}); "
+                f"check candidate_n={self._candidate_n} k_fixed={self._k_fixed}"
+            )
+            assert front_base + self._num_cpus * self._candidate_n <= obs_dim, (
+                f"obs index out of range: front_base={front_base} + "
+                f"num_cpus={self._num_cpus}*candidate_n={self._candidate_n} > obs_dim={obs_dim}"
+            )
+
             # AP embedding MLP (shared across all APs)
             ap_embed_dim = 32
             self._ap_embed_dim = ap_embed_dim
@@ -83,17 +95,25 @@ class HighActor(nn.Module):
                 init_(nn.Linear(ap_embed_dim, ap_embed_dim)),
                 act_fn,
             )
-            # Pair interaction: [sum(32) + |diff|(32) + product(32)] = 96
-            pair_repr_dim = ap_embed_dim * 3
-            # Global context: mean of AP embeds -> project to hidden_size -> RNN -> project to g_proj_dim
+            # Pair representation dim: both paths output 96D for fair capacity comparison.
+            # sdp: sum+|diff|+prod directly gives 96D.
+            # concat: [e_i, e_j]=64D -> linear projection to 96D (no activation, capacity alignment only).
+            pair_repr_dim = ap_embed_dim * 3  # 96
+            if self._pair_repr_type == "concat":
+                self.concat_proj = nn.Linear(ap_embed_dim * 2, pair_repr_dim, bias=False)
+                init_method(self.concat_proj.weight, gain=gain)
+            # Global context branch (ablation: disabled by --high_no_global_ctx)
             # RNN must use hidden_size to match buffer rnn_states shape.
             self._g_proj_dim = 16
-            self.g_pre = init_(nn.Linear(ap_embed_dim, self.hidden_size))
-            if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-                self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
-            self.g_proj = init_(nn.Linear(self.hidden_size, self._g_proj_dim))
-            # Scorer MLP: pair_repr(96) + user_ctx(7) + g_proj(16) = 119 -> 1
-            scorer_in_dim = pair_repr_dim + self._user_ctx_dim + self._g_proj_dim
+            if self._use_global_ctx:
+                self.g_pre = init_(nn.Linear(ap_embed_dim, self.hidden_size))
+                if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+                    self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+                self.g_proj = init_(nn.Linear(self.hidden_size, self._g_proj_dim))
+            # Scorer MLP input dim
+            scorer_in_dim = pair_repr_dim + self._user_ctx_dim
+            if self._use_global_ctx:
+                scorer_in_dim += self._g_proj_dim
             self.scorer = nn.Sequential(
                 init_(nn.Linear(scorer_in_dim, 64)),
                 act_fn,
@@ -128,10 +148,12 @@ class HighActor(nn.Module):
         # Pair interaction for each combo
         e_i = ap_embeds[:, :, self._combo_i]  # [B, M, 28, 32]
         e_j = ap_embeds[:, :, self._combo_j]  # [B, M, 28, 32]
-        pair_sum = e_i + e_j
-        pair_diff = torch.abs(e_i - e_j)
-        pair_prod = e_i * e_j
-        pair_repr = torch.cat([pair_sum, pair_diff, pair_prod], dim=-1)  # [B, M, 28, 96]
+        if self._pair_repr_type == "sdp":
+            pair_repr = torch.cat([e_i + e_j, torch.abs(e_i - e_j), e_i * e_j], dim=-1)  # [B, M, 28, 96]
+        else:
+            raw = torch.cat([e_i, e_j], dim=-1)                          # [B, M, 28, 64]
+            B2, M2, C2, _ = raw.shape
+            pair_repr = self.concat_proj(raw.reshape(B2 * M2 * C2, -1)).reshape(B2, M2, C2, -1)  # [B, M, 28, 96]
         # User context
         user_ctx = obs[:, :, self._user_ctx_indices]  # [B, M, 7]
         user_ctx_expand = user_ctx.unsqueeze(2).expand(B, M, len(self._ap_combos), self._user_ctx_dim)
@@ -148,20 +170,24 @@ class HighActor(nn.Module):
             pair_repr, user_ctx_expand, g, _ = self._compute_pair_logits(obs)
             B, M = obs.shape[0], obs.shape[1]
             num_combos = len(self._ap_combos)
-            # g: [B, M, 32] -> flatten to [B*M, 32] for shared MLP/RNN
-            g_flat = g.reshape(B * M, -1)                          # [B*M, 32]
-            g_flat = self.g_pre(g_flat)                            # [B*M, hidden_size]
-            if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-                # rnn_states: rollout=[B, M, recN, H], training=[N, M, recN, H]
-                N_rnn = rnn_states.shape[0]
-                rnn_states_flat = rnn_states.reshape(N_rnn * M, *rnn_states.shape[2:])  # [N_rnn*M, recN, H]
-                # masks: [B, 1] -> expand per-user -> [B*M, 1]
-                masks_flat = masks.unsqueeze(1).expand(B, M, 1).reshape(B * M, 1)
-                g_flat, rnn_states_out = self.rnn(g_flat, rnn_states_flat, masks_flat)
-                rnn_states = rnn_states_out.reshape(N_rnn, M, *rnn_states_out.shape[1:])  # [N_rnn, M, recN, H]
-            g_proj = self.g_proj(g_flat).reshape(B, M, -1)         # [B, M, g_proj_dim]
-            g_expand = g_proj.unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
-            scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)  # [B, M, 45, 119]
+            if self._use_global_ctx:
+                # g: [B, M, 32] -> flatten to [B*M, 32] for shared MLP/RNN
+                g_flat = g.reshape(B * M, -1)                          # [B*M, 32]
+                g_flat = self.g_pre(g_flat)                            # [B*M, hidden_size]
+                if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+                    # rnn_states: rollout=[B, M, recN, H], training=[N, M, recN, H]
+                    N_rnn = rnn_states.shape[0]
+                    rnn_states_flat = rnn_states.reshape(N_rnn * M, *rnn_states.shape[2:])  # [N_rnn*M, recN, H]
+                    # masks: [B, 1] -> expand per-user -> [B*M, 1]
+                    masks_flat = masks.unsqueeze(1).expand(B, M, 1).reshape(B * M, 1)
+                    g_flat, rnn_states_out = self.rnn(g_flat, rnn_states_flat, masks_flat)
+                    rnn_states = rnn_states_out.reshape(N_rnn, M, *rnn_states_out.shape[1:])  # [N_rnn, M, recN, H]
+                g_proj = self.g_proj(g_flat).reshape(B, M, -1)         # [B, M, g_proj_dim]
+                g_expand = g_proj.unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
+                scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)
+            else:
+                # global ctx disabled: rnn_states passed through unchanged
+                scorer_input = torch.cat([pair_repr, user_ctx_expand], dim=-1)
             logits = self.scorer(scorer_input).squeeze(-1)          # [B, M, 45]
         else:
             h_ctx, g = self.encoder(obs)
@@ -206,16 +232,20 @@ class HighActor(nn.Module):
             pair_repr, user_ctx_expand, g, _ = self._compute_pair_logits(obs)
             B, M = obs.shape[0], obs.shape[1]
             num_combos = len(self._ap_combos)
-            g_flat = g.reshape(B * M, -1)                          # [B*M, 32]
-            g_flat = self.g_pre(g_flat)                            # [B*M, hidden_size]
-            if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-                N_rnn = rnn_states.shape[0]
-                rnn_states_flat = rnn_states.reshape(N_rnn * M, *rnn_states.shape[2:])
-                masks_flat = masks.unsqueeze(1).expand(B, M, 1).reshape(B * M, 1)
-                g_flat, _ = self.rnn(g_flat, rnn_states_flat, masks_flat)
-            g_proj = self.g_proj(g_flat).reshape(B, M, -1)
-            g_expand = g_proj.unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
-            scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)
+            if self._use_global_ctx:
+                g_flat = g.reshape(B * M, -1)                          # [B*M, 32]
+                g_flat = self.g_pre(g_flat)                            # [B*M, hidden_size]
+                if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+                    N_rnn = rnn_states.shape[0]
+                    rnn_states_flat = rnn_states.reshape(N_rnn * M, *rnn_states.shape[2:])
+                    masks_flat = masks.unsqueeze(1).expand(B, M, 1).reshape(B * M, 1)
+                    g_flat, _ = self.rnn(g_flat, rnn_states_flat, masks_flat)
+                g_proj = self.g_proj(g_flat).reshape(B, M, -1)
+                g_expand = g_proj.unsqueeze(2).expand(B, M, num_combos, self._g_proj_dim)
+                scorer_input = torch.cat([pair_repr, user_ctx_expand, g_expand], dim=-1)
+            else:
+                # global ctx disabled: rnn_states not used
+                scorer_input = torch.cat([pair_repr, user_ctx_expand], dim=-1)
             logits = self.scorer(scorer_input).squeeze(-1)
         else:
             h_ctx, g = self.encoder(obs)

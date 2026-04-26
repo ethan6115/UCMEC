@@ -39,40 +39,25 @@ def make_env(seed):
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 
 #nlos
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run1/models/actor_499.pt"
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
-
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
-
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn/run1/models/actor_499.pt"
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
-# new actor
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run2/models/actor_high.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_7e-3/rmappo/hierarchical_hotspot_heuristic_pair_scorer/run1/models/actor_high.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic/run1/models/actor_high.pt"
-#highlow
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/models/actor_499.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_pair_scorer_highlow/run1/models/actor_high.pt"
-#nopair
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/models/actor_499.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_hotspot_heuristic_highlow/HDRL/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
 
 #new g highlow
-MODEL_LOW = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run5/models/actor_499.pt"
-MODEL_HIGH = r"results/hotspotEnv/nlos_cluster/rmappo/hierarchical_heuristic_pair_scorer_highlow/run5/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow_critic_attn/run1/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow_critic_attn/run1/models/actor_high.pt"
 
 #low mappo
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_high.pt"
 #low mappo only low
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
 
 #low ablation fix power
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_minpower/run1/models/actor_499.pt"
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_maxpower/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_minpower/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_maxpower/run1/models/actor_499.pt"
 #hierarchical ablation fix power
-#MODEL_LOW = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/hierarchical_heuristic_pair_scorer_highlow_minpower/minpower/models/actor_499.pt"
-#MODEL_HIGH = r"results/hotspotEnv/nlos_cluster_low_ablation/rmappo/hierarchical_heuristic_pair_scorer_highlow_minpower/minpower/models/actor_high.pt"
+MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_499.pt"
+MODEL_HIGH = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
@@ -81,8 +66,8 @@ try:
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
 
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
-    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_heurlow_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min as MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max as MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
@@ -376,6 +361,45 @@ def evaluate(model_path):
                         )
                     high_args.high_actor_type = inferred_actor_type
 
+                    # Auto-match recurrent usage from checkpoint to avoid load mismatch
+                    # when eval USE_RECURRENT differs from training config.
+                    has_rnn = any(k.startswith("rnn.") for k in ckpt_keys)
+                    configured_recurrent = bool(getattr(high_args, "use_recurrent_policy", False))
+                    if configured_recurrent != has_rnn:
+                        print(
+                            f"[eval] Override high use_recurrent_policy: {configured_recurrent} -> "
+                            f"{has_rnn} (from checkpoint keys)."
+                        )
+                    high_args.use_recurrent_policy = has_rnn
+                    high_args.use_naive_recurrent_policy = False
+
+                    if inferred_actor_type == "pair_scorer":
+                        # pair representation auto-match:
+                        # concat checkpoints contain concat_proj.*, otherwise treat as sdp.
+                        has_concat_proj = any(k.startswith("concat_proj.") for k in ckpt_keys)
+                        inferred_pair_repr = "concat" if has_concat_proj else "sdp"
+                        configured_pair_repr = getattr(high_args, "high_pair_repr", "sdp")
+                        if configured_pair_repr != inferred_pair_repr:
+                            print(
+                                f"[eval] Override high_pair_repr: {configured_pair_repr} -> "
+                                f"{inferred_pair_repr} (from checkpoint keys)."
+                            )
+                        high_args.high_pair_repr = inferred_pair_repr
+
+                        # global context branch auto-match:
+                        # g_pre/g_proj present => uses global ctx; otherwise no_global_ctx.
+                        has_global_ctx = any(
+                            k.startswith("g_pre.") or k.startswith("g_proj.") for k in ckpt_keys
+                        )
+                        inferred_no_global_ctx = not has_global_ctx
+                        configured_no_global_ctx = bool(getattr(high_args, "high_no_global_ctx", False))
+                        if configured_no_global_ctx != inferred_no_global_ctx:
+                            print(
+                                f"[eval] Override high_no_global_ctx: {configured_no_global_ctx} -> "
+                                f"{inferred_no_global_ctx} (from checkpoint keys)."
+                            )
+                        high_args.high_no_global_ctx = inferred_no_global_ctx
+
                     # Infer high hidden size from checkpoint RNN weights if available.
                     # Keeps eval compatible with runs trained using different high_hidden_size.
                     inferred_hidden_size = None
@@ -383,6 +407,8 @@ def evaluate(model_path):
                         inferred_hidden_size = int(state_dict["rnn.rnn.weight_hh_l0"].shape[1])
                     elif "g_pre.weight" in state_dict:
                         inferred_hidden_size = int(state_dict["g_pre.weight"].shape[0])
+                    elif "g_proj.weight" in state_dict:
+                        inferred_hidden_size = int(state_dict["g_proj.weight"].shape[1])
                     elif "logits.weight" in state_dict:
                         inferred_hidden_size = int(state_dict["logits.weight"].shape[1])
                     if inferred_hidden_size is not None:
