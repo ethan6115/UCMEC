@@ -780,7 +780,8 @@ class MA_UCMEC_dyna_noncoop(object):
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
+            #reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
+            reward[i, 0] = -total_delay_clip[i, 0]
         
         # === 每個 time step 的統計量 (之後會塞進 info) ===
         # Average Total Delay (所有 user)

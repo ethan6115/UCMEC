@@ -39,12 +39,12 @@ def make_env(seed):
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 
 #nlos
-#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run1/models/actor_499.pt"
-#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_cluster1/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
 
 #new g highlow
-#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow_critic_attn/run1/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow_critic_attn/run1/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/models/actor_high.pt"
 
 #low mappo
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
@@ -55,19 +55,28 @@ def make_env(seed):
 #low ablation fix power
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_minpower/run1/models/actor_499.pt"
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_maxpower/run1/models/actor_499.pt"
+
 #hierarchical ablation fix power
-MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_499.pt"
-MODEL_HIGH = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_high.pt"
+
+#high ablation pair concat
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run3/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run3/models/actor_high.pt"
+
+#high ablation no global and rnn
+MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/models/actor_499.pt"
+MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
-    #from envs.MA_UCMEC_dyna_noncoop_cluster_rand import MA_UCMEC_dyna_noncoop_cluster_rand as MA_UCMEC_dyna_noncoop
-    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower_min as MA_UCMEC_dyna_noncoop
+    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop
+    #from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower_min as MA_UCMEC_dyna_noncoop
     from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
 
-    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max as MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max as MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config

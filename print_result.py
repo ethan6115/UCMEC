@@ -1,34 +1,62 @@
-import scipy.io as scio
-import matplotlib.pyplot as plt
-import numpy as np
 import os
+import scipy.io as scio
+import numpy as np
+
+# If matplotlib default config dir is not writable, force a writable fallback.
+# This avoids unstable backend/config behavior across runs.
+_mpl_cfg = os.path.expanduser("~/.config/matplotlib")
+if not os.access(_mpl_cfg, os.W_OK):
+    _fallback_cfg = os.path.join("/tmp", "matplotlib")
+    os.makedirs(_fallback_cfg, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", _fallback_cfg)
+
+import matplotlib.pyplot as plt
 
 # ===== 1. 設定多個檔案路徑 =====
 # 可以把你要畫的 reward.mat 全部放在這個 list 裡
 mat_paths = [
-    #舊的
-    #IPPO
-    #r'results/hotspotEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
-    #hierarchical highlow
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run1/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run2/reward.mat',
-    #r'results/hotspotEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run3/reward.mat',
 
     #新的
     #IPPO
-    r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
-    r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run2/reward.mat',
-    r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run2/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run3/reward.mat',
+    #new reward
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run1/reward.mat',
+    # w/o front obs
+    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run2/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run3/reward.mat',
+
     #hierarchical highlow
-    r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run1/reward.mat',
-    r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run2/reward.mat',
-    #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_pair_scorer_highlow/run2/reward.mat',
+    #new reward
+    r'results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run4/reward.mat',
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow_meanmaxglobal/run1/reward.mat',
+
+
     #w/o pair scorer
     #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_highlow/run1/reward.mat',
 
+    #low ablation
     #r'results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run1/reward.mat',
     #r'results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run2/reward.mat',
     #r'results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/reward.mat',
+
+    #high ablation
+    #pair concat
+    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run2/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run3/reward.mat',
+    #no global
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_noglobal/run3/reward.mat',
+
 ]
 
 def load_reward(file_path):
@@ -56,13 +84,84 @@ def smooth_rewards(rewards, window_size=5):
     else:
         return rewards
 
+
+def _stabilize_figure_window(fig, margin=40):
+    """Center the figure window and clamp size to visible screen area."""
+    try:
+        manager = fig.canvas.manager
+        window = manager.window
+    except Exception:
+        return  # Non-GUI backend (e.g., Agg) or no window handle.
+
+    try:
+        # Tk backend
+        if hasattr(window, "winfo_screenwidth") and hasattr(window, "geometry"):
+            window.update_idletasks()
+            sw = int(window.winfo_screenwidth())
+            sh = int(window.winfo_screenheight())
+            ww = int(window.winfo_width())
+            wh = int(window.winfo_height())
+            if ww <= 1 or wh <= 1:
+                fw, fh = fig.get_size_inches()
+                dpi = fig.get_dpi()
+                ww = int(fw * dpi)
+                wh = int(fh * dpi)
+            ww = max(300, min(ww, max(300, sw - 2 * margin)))
+            wh = max(220, min(wh, max(220, sh - 2 * margin)))
+            x = max(0, (sw - ww) // 2)
+            y = max(0, (sh - wh) // 2)
+            window.geometry(f"{ww}x{wh}+{x}+{y}")
+            return
+
+        # Qt backend
+        if hasattr(window, "screen") and hasattr(window, "move") and hasattr(window, "resize"):
+            screen = window.screen()
+            if screen is not None:
+                geo = screen.availableGeometry()
+                sw = int(geo.width())
+                sh = int(geo.height())
+                sx = int(geo.x())
+                sy = int(geo.y())
+            else:
+                sw, sh, sx, sy = 1920, 1080, 0, 0
+            ww = int(window.width())
+            wh = int(window.height())
+            if ww <= 1 or wh <= 1:
+                fw, fh = fig.get_size_inches()
+                dpi = fig.get_dpi()
+                ww = int(fw * dpi)
+                wh = int(fh * dpi)
+            ww = max(300, min(ww, max(300, sw - 2 * margin)))
+            wh = max(220, min(wh, max(220, sh - 2 * margin)))
+            x = sx + max(0, (sw - ww) // 2)
+            y = sy + max(0, (sh - wh) // 2)
+            window.resize(ww, wh)
+            window.move(x, y)
+            return
+
+        # Fallback for other backends
+        if hasattr(window, "move"):
+            window.move(80, 60)
+    except Exception:
+        # If the backend does not support positioning, keep default behavior.
+        pass
+
 def plot_rewards(file_paths, window_size=5, show_raw=False):
     """
     file_paths: list of reward.mat 路徑
     window_size: 移動平均的視窗大小
     show_raw: 是否也畫出原始曲線
     """
-    plt.figure(figsize=(10, 6))
+    fig, ax = plt.subplots(num="Training Convergence", figsize=(10, 6), clear=True)
+    _window_stabilized = {"done": False}
+
+    def _on_first_draw(_event):
+        if _window_stabilized["done"]:
+            return
+        _window_stabilized["done"] = True
+        _stabilize_figure_window(fig)
+
+    fig.canvas.mpl_connect("draw_event", _on_first_draw)
 
     any_valid = False  # 檢查有沒有至少一個檔案成功載入
 
@@ -79,9 +178,9 @@ def plot_rewards(file_paths, window_size=5, show_raw=False):
             label_base = f'Run {idx+1}'
 
         if show_raw:
-            plt.plot(rewards, alpha=0.3, label=f'{label_base} Raw')
+            ax.plot(rewards, alpha=0.3, label=f'{label_base} Raw')
 
-        plt.plot(
+        ax.plot(
             rewards_smooth,
             linewidth=2,
             label=f'{label_base} MA={window_size}'
@@ -93,12 +192,12 @@ def plot_rewards(file_paths, window_size=5, show_raw=False):
         print("沒有任何有效的 reward 資料可以畫圖，請檢查路徑與 .mat 檔內容。")
         return
 
-    plt.title("Training Convergence")
-    plt.xlabel("Training Iterations")
-    plt.ylabel("Average Reward")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
+    ax.set_title("Training Convergence")
+    ax.set_xlabel("Training Iterations")
+    ax.set_ylabel("Average Reward")
+    ax.legend()
+    ax.grid(True)
+    fig.tight_layout()
     plt.show()
     # plt.savefig('training_result_multi.png')
 
