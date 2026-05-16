@@ -547,8 +547,18 @@ class EnvRunner(Runner):
         )  # [env_num, agent_num, 1, hidden_size]
         # rearrange action
         if self.envs.action_space[0].__class__.__name__ == "MultiDiscrete":
-            for i in range(self.envs.action_space[0].shape):
-                uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[actions[:, :, i]]
+            action_space = self.envs.action_space[0]
+            if hasattr(action_space, "nvec"):
+                multi_discrete_dim = len(action_space.nvec)
+                multi_discrete_sizes = action_space.nvec
+            elif isinstance(action_space.shape, tuple):
+                multi_discrete_dim = action_space.shape[0]
+                multi_discrete_sizes = action_space.high + 1
+            else:
+                multi_discrete_dim = action_space.shape
+                multi_discrete_sizes = action_space.high + 1
+            for i in range(multi_discrete_dim):
+                uc_actions_env = np.eye(int(multi_discrete_sizes[i]))[actions[:, :, i]]
                 if i == 0:
                     actions_env = uc_actions_env
                 else:

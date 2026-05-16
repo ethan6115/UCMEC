@@ -18,7 +18,7 @@ USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = "trained"  # "trained" | "baseline_topk" | "oracle" | "best_front"
+HIGH_POLICY_MODE = "best_front"  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
 
 SEEDS = [18, 62, 53, 14, 58,
@@ -28,6 +28,7 @@ SEEDS = [18, 62, 53, 14, 58,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
 
+EPISODES_PER_SEED = 1
 #SEEDS = [18, 62, 53, 14, 58]
 #SEEDS = [99, 95, 58, 776, 153, 11, 84, 94, 189, 735] #win
 def make_env(seed):
@@ -39,8 +40,11 @@ def make_env(seed):
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 
 #nlos
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run3/models/actor_499.pt"
 #MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
+
+#best front
+MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/models/actor_499.pt"
 
 #new g highlow
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/models/actor_499.pt"
@@ -52,21 +56,25 @@ def make_env(seed):
 #low mappo only low
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
 
-#low ablation fix power
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_minpower/run1/models/actor_499.pt"
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/noncoop_rnn_maxpower/run1/models/actor_499.pt"
+#high ablation no pair scorer
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run1/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run1/models/actor_high.pt"
 
 #hierarchical ablation fix power
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_low_ablation/rmappo/hierarchical_pair_scorer_highlow_maxpower/run3/models/actor_high.pt"
+#max
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_maxpower/run5/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_maxpower/run5/models/actor_high.pt"
+#min
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower/run5/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower/run5/models/actor_high.pt"
 
 #high ablation pair concat
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run3/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run3/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/models/actor_499.pt"
-MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
@@ -467,7 +475,7 @@ def evaluate(model_path):
         else:
             raise ValueError(f"Unsupported HIGH_POLICY_MODE: {HIGH_POLICY_MODE}")
     # 5. Evaluate with multiple seeds
-    num_episodes = 1
+    num_episodes = EPISODES_PER_SEED
     seed_results = {
         "avg_total_delay_ms": [],
         "avg_local_delay_ms": [],

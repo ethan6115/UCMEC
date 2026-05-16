@@ -28,6 +28,7 @@ class ACTLayer(nn.Module):
             self.action_out = Bernoulli(inputs_dim, action_dim, use_orthogonal, gain)
         elif action_space.__class__.__name__ == "MultiDiscrete":
             self.multi_discrete = True
+            self.joint_logprob_sum = bool(getattr(action_space, "joint_logprob_sum", False))
             if hasattr(action_space, "high"):
                 action_dims = action_space.high - action_space.low + 1
             else:
@@ -79,6 +80,8 @@ class ACTLayer(nn.Module):
 
             actions = torch.cat(actions, -1)
             action_log_probs = torch.cat(action_log_probs, -1)
+            if self.joint_logprob_sum:
+                action_log_probs = torch.sum(action_log_probs, -1, keepdim=True)
         elif self.continuous_action:
             # actions = []
             # action_log_probs = []
@@ -163,6 +166,8 @@ class ACTLayer(nn.Module):
                     dist_entropy.append(action_logit.entropy().mean())
 
             action_log_probs = torch.cat(action_log_probs, -1) # ! could be wrong
+            if self.joint_logprob_sum:
+                action_log_probs = torch.sum(action_log_probs, -1, keepdim=True)
             dist_entropy = torch.tensor(dist_entropy).mean()
 
         elif self.continuous_action:

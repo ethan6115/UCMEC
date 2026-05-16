@@ -62,11 +62,12 @@ class SharedReplayBuffer(object):
             self.available_actions = None
 
         act_shape = get_shape_from_act_space(act_space)
+        action_log_prob_shape = 1 if getattr(args, "use_joint_policy", False) else act_shape
 
         self.actions = np.zeros(
             (self.episode_length, self.n_rollout_threads, num_agents, act_shape), dtype=np.float32)
         self.action_log_probs = np.zeros(
-            (self.episode_length, self.n_rollout_threads, num_agents, act_shape), dtype=np.float32)
+            (self.episode_length, self.n_rollout_threads, num_agents, action_log_prob_shape), dtype=np.float32)
         self.rewards = np.zeros(
             (self.episode_length, self.n_rollout_threads, num_agents, 1), dtype=np.float32)
 

@@ -226,6 +226,12 @@ def get_config():
     )
     # Reason: keep hierarchical toggle here, env semantics still live in env code.
     parser.add_argument("--use_hierarchical", action="store_true", default=False)
+    parser.add_argument(
+        "--use_joint_policy",
+        action="store_true",
+        default=False,
+        help="enable flat joint PPO baseline with MultiDiscrete(AP-pair, low-action)",
+    )
     parser.add_argument("--hierarchical_interval", type=int, default=10)
     parser.add_argument(
         "--use_low_cluster_randomization",
