@@ -24,7 +24,9 @@ mat_paths = [
     #new reward
     r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run4/reward.mat',
     #best front
-    r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run1/reward.mat',
+    #flat drl
+    r'results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run3/reward.mat',
     # w/o front obs
     #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/reward.mat',
     #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run2/reward.mat',
@@ -41,7 +43,7 @@ mat_paths = [
 
 
     #w/o pair scorer
-    #r'results/MyEnv/nlos_cluster/rmappo/hierarchical_highlow/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/reward.mat',
 
     #fix power
     #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower/run5/reward.mat',
@@ -51,9 +53,7 @@ mat_paths = [
 
     #high ablation
     #pair concat
-    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run1/reward.mat',
-    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run2/reward.mat',
-    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_pairconcat/run3/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run4/reward.mat',
     #no global
     r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/reward.mat',
     #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/reward.mat',

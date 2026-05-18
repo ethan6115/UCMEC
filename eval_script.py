@@ -8,6 +8,7 @@ import copy
 current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 # Toggle here to switch evaluation mode without CLI args.
+USE_FLAT_JOINT = False
 USE_HIERARCHICAL = True
 PER_USER = True
 HIERARCHICAL_INTERVAL = 10
@@ -18,7 +19,7 @@ USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = "best_front"  # "trained" | "baseline_topk" | "oracle" | "best_front"
+HIGH_POLICY_MODE = "trained"  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
 
 SEEDS = [18, 62, 53, 14, 58,
@@ -32,6 +33,8 @@ EPISODES_PER_SEED = 1
 #SEEDS = [18, 62, 53, 14, 58]
 #SEEDS = [99, 95, 58, 776, 153, 11, 84, 94, 189, 735] #win
 def make_env(seed):
+    if USE_FLAT_JOINT:
+        return MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True, seed=seed)
     if USE_HIERARCHICAL:
         if PER_USER:
             return MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=True, seed=seed)
@@ -40,11 +43,12 @@ def make_env(seed):
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 
 #nlos
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run3/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run4/models/actor_499.pt"
 #MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
+#MODEL_FLAT = r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run3/models/actor_499.pt"
 
 #best front
-MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/models/actor_499.pt"
 
 #new g highlow
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/models/actor_499.pt"
@@ -57,8 +61,8 @@ MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/mo
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
 
 #high ablation no pair scorer
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run1/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run1/models/actor_high.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/models/actor_499.pt"
+#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/models/actor_high.pt"
 
 #hierarchical ablation fix power
 #max
@@ -73,8 +77,8 @@ MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/mo
 #MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt"
+MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt"
+MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt"
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
@@ -84,6 +88,7 @@ try:
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
 
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_flat import MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat
     #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max as MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
@@ -308,7 +313,9 @@ def evaluate(model_path):
     
     # 2. 建立環境
     print("正在初始化環境...")
-    if USE_HIERARCHICAL:
+    if USE_FLAT_JOINT:
+        env = MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True)
+    elif USE_HIERARCHICAL:
         if PER_USER:
             env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=True)
         else:
@@ -323,6 +330,7 @@ def evaluate(model_path):
     
     use_dummy_low_policy = bool(
         USE_HIERARCHICAL
+        and not USE_FLAT_JOINT
         and PER_USER
         and hasattr(env, "low_heuristic_only")
         and getattr(env, "low_heuristic_only", False)
@@ -349,7 +357,7 @@ def evaluate(model_path):
         # 切換到評估模式
         actor.eval()
     high_actor = None
-    if USE_HIERARCHICAL:
+    if USE_HIERARCHICAL and not USE_FLAT_JOINT:
         if HIGH_POLICY_MODE == "trained":
             high_obs_space = env.high_observation_space
             high_act_space = env.high_action_space
@@ -506,7 +514,7 @@ def evaluate(model_path):
         "avg_cpu_used_per_step": [],
         "front_log_cap_hit_ratio": [],
     }
-    if USE_HIERARCHICAL and PER_USER:
+    if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER:
         seed_results["high_combo_hist"] = []           # combo index distribution
         seed_results["high_combo_mean_best_cfq"] = []  # avg max(cpu_front_quality) per decision
         seed_results["high_cpu_match_rate"] = []        # low-level CPU matches best cfq CPU
@@ -635,7 +643,7 @@ def evaluate(model_path):
             sum_high_action_entropy_count = 0
             sum_front_log_cap_hit_ratio = 0.0
             dones = [False] * env.n_agents
-            if USE_HIERARCHICAL:
+            if USE_HIERARCHICAL and not USE_FLAT_JOINT:
                 if HIGH_POLICY_MODE == "trained":
                     # pair_scorer uses per-user RNN: shape [1, M, recN, H].
                     # mlp / R_Actor use shared RNN: shape [1, recN, H] (old behaviour).
@@ -659,9 +667,9 @@ def evaluate(model_path):
                 prev_high_global_obs_dbg = None
             step_count = 0
             while not all(dones):
-                if USE_HIERARCHICAL and hasattr(env, "advance_channel"):
+                if USE_HIERARCHICAL and not USE_FLAT_JOINT and hasattr(env, "advance_channel"):
                     env.advance_channel()
-                if USE_HIERARCHICAL and (step_count % HIERARCHICAL_INTERVAL == 0):
+                if USE_HIERARCHICAL and not USE_FLAT_JOINT and (step_count % HIERARCHICAL_INTERVAL == 0):
                     global_obs = env.get_global_obs()
                     global_obs = np.expand_dims(global_obs, axis=0)
                     if HIGH_POLICY_MODE == "trained":
@@ -705,7 +713,7 @@ def evaluate(model_path):
                             high_action = np.full((env.M_sim,), baseline_combo_idx, dtype=np.int32)
                         else:
                             high_action = baseline_combo_idx
-                    if USE_HIERARCHICAL and PER_USER:
+                    if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER:
                         high_action_np = np.asarray(high_action, dtype=np.int32).reshape(-1)
                         # combo action: index 0..C(n,k)-1 maps to AP combo
                         n_combos = len(env._ap_combos) if hasattr(env, "_ap_combos") else int(env.high_action_space.nvec[0])
@@ -724,7 +732,7 @@ def evaluate(model_path):
                         sum_high_action_entropy_sum += ent_norm
                         sum_high_action_entropy_count += 1
                     # ===== DEBUG_HIGH_ACTION_PROBS BEGIN (safe to delete this whole block later) =====
-                    if USE_HIERARCHICAL and PER_USER and DEBUG_HIGH_ACTION_PROBS and hasattr(high_actor, "encoder"):
+                    if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER and DEBUG_HIGH_ACTION_PROBS and hasattr(high_actor, "encoder"):
                         print(f"[HIGH-DEBUG] step={step_count}")
                         with torch.no_grad():
                             obs_t = torch.as_tensor(global_obs, dtype=torch.float32)
@@ -782,7 +790,7 @@ def evaluate(model_path):
                         env.set_high_action(high_action)
                     # --- combo quality diagnostic: best cpu_front_quality ---
                     # Must be AFTER apply_high_action() so cpu_front_quality reflects current interval
-                    if USE_HIERARCHICAL and PER_USER:
+                    if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER:
                         if hasattr(env, "cpu_front_quality") and env.cpu_front_quality is not None:
                             best_cfq = np.max(env.cpu_front_quality, axis=1)  # (M_sim,)
                             sum_best_cfq_sum += float(np.mean(best_cfq))
@@ -794,8 +802,11 @@ def evaluate(model_path):
                     obs_batch = np.stack(obs)
                     with torch.no_grad():
                         actions, _, rnn_states = actor(obs_batch, rnn_states, masks, deterministic=True)
-                    action_indices = actions.cpu().numpy().flatten()
-                    actions_env = np.eye(act_space.n)[action_indices]
+                    if act_space.__class__.__name__ == "MultiDiscrete":
+                        actions_env = actions.cpu().numpy().astype(np.int32)
+                    else:
+                        action_indices = actions.cpu().numpy().flatten()
+                        actions_env = np.eye(act_space.n)[action_indices]
                 next_obs, rewards, next_dones, infos = env.step(actions_env)
                 if USE_PIVOTAL_STATS:
                     if (
@@ -1035,7 +1046,7 @@ def evaluate(model_path):
             allsum_offload += offload_counts
             allsum_cpu_used_steps += cpu_used_sum
             allsum_cpu_used_count += cpu_used_steps
-            if USE_HIERARCHICAL and PER_USER and sum_high_combo_hist is not None:
+            if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER and sum_high_combo_hist is not None:
                 if allsum_high_combo_hist is None:
                     allsum_high_combo_hist = np.zeros_like(sum_high_combo_hist)
                 allsum_high_combo_hist += sum_high_combo_hist
@@ -1043,10 +1054,10 @@ def evaluate(model_path):
                 allsum_best_cfq_count += sum_best_cfq_count
                 allsum_cpu_match_sum += sum_cpu_match_sum
                 allsum_cpu_match_count += sum_cpu_match_count
-            if USE_HIERARCHICAL and PER_USER and sum_high_action_entropy_count > 0:
+            if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER and sum_high_action_entropy_count > 0:
                 allsum_high_action_entropy_sum += sum_high_action_entropy_sum
                 allsum_high_action_entropy_count += sum_high_action_entropy_count
-            if USE_HIERARCHICAL and attn_max_list:
+            if USE_HIERARCHICAL and not USE_FLAT_JOINT and attn_max_list:
                 attn_max_arr = np.array(attn_max_list, dtype=np.float32)
                 attn_ent_arr = np.array(attn_entropy_list, dtype=np.float32)
                 print(
@@ -1105,7 +1116,7 @@ def evaluate(model_path):
             seed_results["avg_cpu_used_per_step"].append(allsum_cpu_used_steps / allsum_cpu_used_count)
         else:
             seed_results["avg_cpu_used_per_step"].append(0.0)
-        if USE_HIERARCHICAL and PER_USER:
+        if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER:
             if allsum_high_combo_hist is not None:
                 hist_ratio = allsum_high_combo_hist / float(max(1, allsum_high_combo_hist.sum()))
                 seed_results["high_combo_hist"].append(hist_ratio)
@@ -1130,7 +1141,7 @@ def evaluate(model_path):
             print(f"  offloading_violation_rate: {viol_rate:.4f}")
             print(f"  pivotal_viol_count: {pivotal_viol_count}")
     # ── combo quality diagnostic ──
-    if USE_HIERARCHICAL and PER_USER and _diag_best_cfq_all:
+    if USE_HIERARCHICAL and not USE_FLAT_JOINT and PER_USER and _diag_best_cfq_all:
         cfq_arr = np.array(_diag_best_cfq_all, dtype=np.float32)
         print(f"\n  [Diagnostic] best_cfq per high-decision: mean={cfq_arr.mean():.4f}, std={cfq_arr.std():.4f}")
         print(f"    Higher = high-level selects AP combos with better fronthaul to at least one CPU.")
@@ -1192,11 +1203,11 @@ def evaluate(model_path):
             print(vals)
 if __name__ == "__main__":
     #model_file = "C:/DCNLab/UCMEC/UCMEC-mmWave-Fronthaul/results/MyEnv/MyEnv/mappo/noncoop_paper_baseline/paper_interval10/models/actor.pt" 
-    model_file = globals().get("MODEL_LOW", None)
+    model_file = globals().get("MODEL_FLAT" if USE_FLAT_JOINT else "MODEL_LOW", None)
     
     # 檢查路徑是否已設定
     if model_file is None:
-        print("[eval] MODEL_LOW 未定義，將以無 low model 模式執行（僅適用 heuristic-low 覆蓋情境）。")
+        print("[eval] MODEL_LOW/MODEL_FLAT 未定義，將以無 low model 模式執行（僅適用 heuristic-low 覆蓋情境）。")
         evaluate("")
     elif "請替換" in model_file:
         print("提示: 請編輯程式碼底部的 'model_file' 變數，設定正確的 actor.pt 路徑。")
