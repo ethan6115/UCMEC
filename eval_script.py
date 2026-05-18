@@ -3,24 +3,40 @@ import numpy as np
 import sys
 import os
 import copy
+import json
 # 將 UCMEC-mmWave-Fronthaul 資料夾加入系統路徑，以確保能匯入 envs 和 algorithms
 # 假設此腳本位於 UCMEC-mmWave-Fronthaul 資料夾的上一層或同層
 current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
+
+
+def _env_bool(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_str(name, default):
+    return os.environ.get(name, default)
+
+
 # Toggle here to switch evaluation mode without CLI args.
-USE_FLAT_JOINT = False
-USE_HIERARCHICAL = True
-PER_USER = True
+USE_FLAT_JOINT = _env_bool("EVAL_USE_FLAT_JOINT", False)
+USE_HIERARCHICAL = _env_bool("EVAL_USE_HIERARCHICAL", True)
+PER_USER = _env_bool("EVAL_PER_USER", True)
 HIERARCHICAL_INTERVAL = 10
 #HIERARCHICAL_INTERVAL = 10
-USE_RECURRENT = True
+USE_RECURRENT = _env_bool("EVAL_USE_RECURRENT", True)
 DEBUG_HIGH_ACTION_PROBS = False  # Print Bernoulli bit probs / AP mapping at high-level decision steps.
 USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = "trained"  # "trained" | "baseline_topk" | "oracle" | "best_front"
+HIGH_POLICY_MODE = _env_str("EVAL_HIGH_POLICY_MODE", "trained")  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
+EVAL_POWER_VARIANT = _env_str("EVAL_POWER_VARIANT", "normal")  # "normal" | "fixed_max" | "fixed_min"
+EVAL_OUTPUT_JSON = _env_str("EVAL_OUTPUT_JSON", "")
 
 SEEDS = [18, 62, 53, 14, 58,
          161, 37, 3, 95, 150,
@@ -37,7 +53,7 @@ def make_env(seed):
         return MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True, seed=seed)
     if USE_HIERARCHICAL:
         if PER_USER:
-            return MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=True, seed=seed)
+            return make_hier_peruser_env(render=True, seed=seed)
         else:
             return MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True, seed=seed)
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
@@ -77,8 +93,9 @@ def make_env(seed):
 #MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt"
-MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt"
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt")
+MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:
     #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
@@ -89,7 +106,10 @@ try:
 
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
     from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_flat import MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat
-    #from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max as MA_UCMEC_dyna_noncoop_hierarchical_peruser
+    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import (
+        MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max,
+        MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min,
+    )
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
@@ -97,6 +117,18 @@ except ImportError as e:
     print("匯入模組失敗，請確認 'UCMEC-mmWave-Fronthaul' 資料夾是否在當前目錄下。")
     print(f"錯誤訊息: {e}")
     sys.exit(1)
+
+
+def make_hier_peruser_env(render=True, seed=None):
+    if EVAL_POWER_VARIANT == "normal":
+        return MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=render, seed=seed)
+    if EVAL_POWER_VARIANT == "fixed_max":
+        return MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max(render=render, seed=seed)
+    if EVAL_POWER_VARIANT == "fixed_min":
+        return MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min(render=render, seed=seed)
+    raise ValueError(f"Unsupported EVAL_POWER_VARIANT: {EVAL_POWER_VARIANT}")
+
+
 # ── Oracle helpers ────────────────────────────────────────────────────────────
 def _snapshot_env(env):
     """Capture env dynamic state for oracle rollback."""
@@ -317,7 +349,7 @@ def evaluate(model_path):
         env = MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True)
     elif USE_HIERARCHICAL:
         if PER_USER:
-            env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=True)
+            env = make_hier_peruser_env(render=True)
         else:
             env = MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True)
     else:
@@ -1147,11 +1179,15 @@ def evaluate(model_path):
         print(f"    Higher = high-level selects AP combos with better fronthaul to at least one CPU.")
         print(f"    Compare with random-high baseline to judge learning.")
     print("Summary over seeds (mean +/- std):")
+    summary_json = {}
     for key, vals in seed_results.items():
         if key == "deadline_satisfaction_ratio":
             vals = np.array(vals, dtype=np.float32)
             print("  deadline_satisfaction_ratio per seed:", vals)
             print(f"  {key}: {vals.mean():.4f} ? {vals.std():.4f}")
+            summary_json[f"{key}_mean"] = float(vals.mean())
+            summary_json[f"{key}_std"] = float(vals.std())
+            summary_json[f"{key}_per_seed"] = vals.astype(float).tolist()
             continue
         if USE_PIVOTAL_STATS and key in {
             "pivotal_uplink",
@@ -1164,11 +1200,16 @@ def evaluate(model_path):
             vals = np.array(vals, dtype=np.float32)
             print(f"  {key} per seed:", vals)
             print(f"  {key}: {vals.mean():.4f} ? {vals.std():.4f}")
+            summary_json[f"{key}_mean"] = float(vals.mean())
+            summary_json[f"{key}_std"] = float(vals.std())
+            summary_json[f"{key}_per_seed"] = vals.astype(float).tolist()
             continue
         if key == "power_dist":
             vals = np.stack(vals, axis=0)
             mean = vals.mean(axis=0)
             std = vals.std(axis=0)
+            summary_json[f"{key}_mean"] = mean.astype(float).tolist()
+            summary_json[f"{key}_std"] = std.astype(float).tolist()
             print("  power_dist (p_level=0..3):")
             for i in range(4):
                 print(f"    p{i}: {mean[i]:.4f} +/- {std[i]:.4f}")
@@ -1177,6 +1218,8 @@ def evaluate(model_path):
             vals = np.stack(vals, axis=0)
             mean = vals.mean(axis=0)
             std = vals.std(axis=0)
+            summary_json[f"{key}_mean"] = mean.astype(float).tolist()
+            summary_json[f"{key}_std"] = std.astype(float).tolist()
             print("  cpu_select_ratio (cpu1..K):")
             for i in range(mean.size):
                 print(f"    cpu{i + 1}: {mean[i]:.4f} +/- {std[i]:.4f}")
@@ -1185,6 +1228,8 @@ def evaluate(model_path):
             vals = np.stack(vals, axis=0)
             mean = vals.mean(axis=0)
             std = vals.std(axis=0)
+            summary_json[f"{key}_mean"] = mean.astype(float).tolist()
+            summary_json[f"{key}_std"] = std.astype(float).tolist()
             # Print combo index → AP pair mapping for readability
             if hasattr(env, "_ap_combos"):
                 print(f"  high_combo_hist (C({env.candidate_n},{env.k_fixed})={len(env._ap_combos)} combos):")
@@ -1199,8 +1244,41 @@ def evaluate(model_path):
             continue
         vals = np.array(vals, dtype=np.float32)
         print(f"  {key}: {vals.mean():.4f} ? {vals.std():.4f}")
+        summary_json[f"{key}_mean"] = float(vals.mean())
+        summary_json[f"{key}_std"] = float(vals.std())
+        summary_json[f"{key}_per_seed"] = vals.astype(float).tolist()
         if key == "avg_front_delay_ms" or key == "avg_uplink_delay_ms":
             print(vals)
+    if EVAL_OUTPUT_JSON:
+        payload = {
+            "mode": {
+                "use_flat_joint": bool(USE_FLAT_JOINT),
+                "use_hierarchical": bool(USE_HIERARCHICAL),
+                "per_user": bool(PER_USER),
+                "use_recurrent": bool(USE_RECURRENT),
+                "high_policy_mode": HIGH_POLICY_MODE,
+                "power_variant": EVAL_POWER_VARIANT,
+            },
+            "models": {
+                "model_low": MODEL_LOW if "MODEL_LOW" in globals() else None,
+                "model_high": MODEL_HIGH if "MODEL_HIGH" in globals() else None,
+                "model_flat": MODEL_FLAT if "MODEL_FLAT" in globals() else None,
+            },
+            "env": {
+                "m_sim": int(getattr(env, "M_sim", -1)),
+                "n_sim": int(getattr(env, "N_sim", -1)),
+                "epsilon": float(getattr(env, "epsilon", float("nan"))),
+            },
+            "seeds": [int(s) for s in SEEDS],
+            "episodes_per_seed": int(EPISODES_PER_SEED),
+            "summary": summary_json,
+        }
+        out_dir = os.path.dirname(EVAL_OUTPUT_JSON)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        with open(EVAL_OUTPUT_JSON, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+        print(f"[eval] Wrote JSON summary to {EVAL_OUTPUT_JSON}")
 if __name__ == "__main__":
     #model_file = "C:/DCNLab/UCMEC/UCMEC-mmWave-Fronthaul/results/MyEnv/MyEnv/mappo/noncoop_paper_baseline/paper_interval10/models/actor.pt" 
     model_file = globals().get("MODEL_FLAT" if USE_FLAT_JOINT else "MODEL_LOW", None)

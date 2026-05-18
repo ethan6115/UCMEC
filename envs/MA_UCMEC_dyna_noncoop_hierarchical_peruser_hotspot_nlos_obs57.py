@@ -5,6 +5,7 @@ import numpy as np
 import math
 import itertools
 import cvxpy as cp
+import os
 
 class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
     def __init__(self, render: bool = False, seed=None):
@@ -17,8 +18,12 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.varsig = 16  # number of antennas of each AP
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
-        self.M_sim = 10  # number of users for simulation
-        self.N_sim = 50  # number of APs for simulation
+        self.M_sim = int(os.environ.get("UCMEC_M_SIM", 10))  # number of users for simulation
+        self.N_sim = int(os.environ.get("UCMEC_N_SIM", 50))  # number of APs for simulation
+        if self.M_sim > self.M:
+            raise ValueError(f"UCMEC_M_SIM({self.M_sim}) > M({self.M})")
+        if self.N_sim > self.N:
+            raise ValueError(f"UCMEC_N_SIM({self.N_sim}) > N({self.N})")
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
@@ -115,7 +120,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # fronthaul channel
         # front_chan = np.zeros([N, K])
         self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
-        self.epsilon = 3e-3  # blockage density
+        self.epsilon = float(os.environ.get("UCMEC_EPSILON", 3e-3))  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
