@@ -17,7 +17,7 @@ METHOD_LABELS = {
     "Proposed_HDRL": "Proposed HDRL",
     "FlatDRL": "Flat DRL",
     "NoPairScorer": "w/o Pair Scorer",
-    "PairConcat": "Pair Concat",
+    "PairConcat": "w/o Pair Interaction",
 }
 
 METHOD_COLORS = {

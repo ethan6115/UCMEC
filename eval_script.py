@@ -45,7 +45,7 @@ SEEDS = [18, 62, 53, 14, 58,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
 
-EPISODES_PER_SEED = 1
+EPISODES_PER_SEED = 3
 #SEEDS = [18, 62, 53, 14, 58]
 #SEEDS = [99, 95, 58, 776, 153, 11, 84, 94, 189, 735] #win
 def make_env(seed):
@@ -60,7 +60,7 @@ def make_env(seed):
 
 #nlos
 #MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run4/models/actor_499.pt"
-#MODEL_LOW = r"results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
+#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
 #MODEL_FLAT = r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run3/models/actor_499.pt"
 
 #best front
@@ -93,8 +93,8 @@ def make_env(seed):
 #MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt")
-MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt")
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run1/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run1/models/actor_high.pt")
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:
@@ -733,14 +733,9 @@ def evaluate(model_path):
                         # Per-user heuristic: pick AP pair with best fronthaul quality.
                         high_action = _best_front_action(env)
                     else:
-                        # baseline_topk: fixed combo among top candidates, same for all users
-                        if hasattr(env, "_ap_combos"):
-                            try:
-                                baseline_combo_idx = int(env._ap_combos.index(BASELINE_TOPK_COMBO))
-                            except ValueError:
-                                baseline_combo_idx = 0
-                        else:
-                            baseline_combo_idx = 0
+                        # baseline_topk: first combo is always (0, ..., k_fixed-1),
+                        # i.e. the top-k access-link candidates.
+                        baseline_combo_idx = 0
                         if PER_USER:
                             high_action = np.full((env.M_sim,), baseline_combo_idx, dtype=np.int32)
                         else:

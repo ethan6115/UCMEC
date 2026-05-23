@@ -17,16 +17,16 @@ import matplotlib.pyplot as plt
 mat_paths = [
 
     #新的
-    #IPPO
-    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run1/reward.mat',
-    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run2/reward.mat',
-    #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn/run3/reward.mat',
     #new reward
-    r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run4/reward.mat',
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run2/reward.mat',
     #best front
     #r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run1/reward.mat',
+    #cluster1
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_cluster1/run2/reward.mat',
+    #cluster3
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_cluster3/run1/reward.mat',
     #flat drl
-    r'results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run3/reward.mat',
     # w/o front obs
     #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run1/reward.mat',
     #r'results/MyEnv/nlos_cluster/rmappo/noncoop_rnn_nofrontobs/run2/reward.mat',
@@ -43,7 +43,7 @@ mat_paths = [
 
 
     #w/o pair scorer
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/reward.mat',
 
     #fix power
     #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower/run5/reward.mat',
@@ -53,12 +53,16 @@ mat_paths = [
 
     #high ablation
     #pair concat
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run4/reward.mat',
+    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run4/reward.mat',
     #no global
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/reward.mat',
-    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/reward.mat',
-    #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run3/reward.mat',
-    #r'results/MyEnv/nlos_cluster_high_ablation/rmappo/hierarchical_pair_scorer_noglobal/run3/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/reward.mat',
+    #candidate 5
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate5/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate8/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate15/run1/reward.mat',
+    
+
 
 ]
 
