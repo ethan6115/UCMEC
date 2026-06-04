@@ -33,21 +33,19 @@ USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = _env_str("EVAL_HIGH_POLICY_MODE", "baseline_topk")  # "trained" | "baseline_topk" | "oracle" | "best_front"
+HIGH_POLICY_MODE = _env_str("EVAL_HIGH_POLICY_MODE", "trained")  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
 EVAL_POWER_VARIANT = _env_str("EVAL_POWER_VARIANT", "normal")  # "normal" | "fixed_max" | "fixed_min"
 EVAL_OUTPUT_JSON = _env_str("EVAL_OUTPUT_JSON", "")
 
 SEEDS = [18, 62, 53, 14, 58,
-         161, 37, 3, 95, 150,
+         161, 37, 4, 95, 150,
          11, 1, 29, 189, 198,
          153, 26, 59, 365, 84,
          946, 56, 99, 75, 263,
          776, 94, 71, 735, 64]
 
 EPISODES_PER_SEED = 3
-#SEEDS = [18, 62, 53, 14, 58]
-#SEEDS = [99, 95, 58, 776, 153, 11, 84, 94, 189, 735] #win
 def make_env(seed):
     if USE_FLAT_JOINT:
         return MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True, seed=seed)
@@ -93,8 +91,8 @@ def make_env(seed):
 #MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_cluster3/run3/models/actor_499.pt")
-MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate5/run3/models/actor_high.pt")
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/models/actor_high.pt")
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:
@@ -1263,6 +1261,9 @@ def evaluate(model_path):
                 "m_sim": int(getattr(env, "M_sim", -1)),
                 "n_sim": int(getattr(env, "N_sim", -1)),
                 "epsilon": float(getattr(env, "epsilon", float("nan"))),
+                "candidate_n": int(getattr(env, "candidate_n", -1)),
+                "k_fixed": int(getattr(env, "k_fixed", -1)),
+                "high_action_dim": int(getattr(env, "high_action_dim", -1)),
             },
             "seeds": [int(s) for s in SEEDS],
             "episodes_per_seed": int(EPISODES_PER_SEED),

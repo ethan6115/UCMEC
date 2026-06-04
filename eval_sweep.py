@@ -15,6 +15,8 @@ DEFAULT_ENV = {
     "UCMEC_M_SIM": "10",
     "UCMEC_EPSILON": "0.003",
     "UCMEC_N_SIM": "50",
+    "UCMEC_CANDIDATE_N": "10",
+    "UCMEC_K_FIXED": "2",
 }
 
 SWEEPS = [
