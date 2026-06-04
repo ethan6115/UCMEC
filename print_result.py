@@ -55,12 +55,12 @@ mat_paths = [
     #pair concat
     #r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run4/reward.mat',
     #no global
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run3/reward.mat',
     #candidate 5
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate5/run1/reward.mat',
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate8/run1/reward.mat',
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run1/reward.mat',
-    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate15/run1/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate5/run2/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate8/run2/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run2/reward.mat',
+    r'results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate15/run2/reward.mat',
     
 
 

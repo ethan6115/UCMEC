@@ -33,7 +33,7 @@ USE_PIVOTAL_STATS = False
 # High-level policy for hierarchical eval:
 #   "trained": use MODEL_HIGH
 #   "baseline_topk": always pick combo (0,1) in top-candidate list
-HIGH_POLICY_MODE = _env_str("EVAL_HIGH_POLICY_MODE", "trained")  # "trained" | "baseline_topk" | "oracle" | "best_front"
+HIGH_POLICY_MODE = _env_str("EVAL_HIGH_POLICY_MODE", "baseline_topk")  # "trained" | "baseline_topk" | "oracle" | "best_front"
 BASELINE_TOPK_COMBO = (0, 1)
 EVAL_POWER_VARIANT = _env_str("EVAL_POWER_VARIANT", "normal")  # "normal" | "fixed_max" | "fixed_min"
 EVAL_OUTPUT_JSON = _env_str("EVAL_OUTPUT_JSON", "")
@@ -93,8 +93,8 @@ def make_env(seed):
 #MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run1/models/actor_499.pt")
-MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate12/run1/models/actor_high.pt")
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_cluster3/run3/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_candidate5/run3/models/actor_high.pt")
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:

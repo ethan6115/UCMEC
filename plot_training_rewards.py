@@ -78,8 +78,11 @@ def smooth_curve(y, window):
     y = np.asarray(y, dtype=np.float64)
     if window <= 1 or len(y) < window:
         return y
+    pad_left = window // 2
+    pad_right = window - 1 - pad_left
+    y_padded = np.pad(y, (pad_left, pad_right), mode="edge")
     kernel = np.ones(window, dtype=np.float64) / float(window)
-    return np.convolve(y, kernel, mode="valid")
+    return np.convolve(y_padded, kernel, mode="valid")
 
 
 def group_rewards():
@@ -99,12 +102,18 @@ def group_rewards():
     return grouped
 
 
-def plot_training_rewards(window=10, output_dir="figures", show=True, band="std"):
+def plot_training_rewards(
+    window=10,
+    output_dir="figures",
+    show=True,
+    band="std",
+    ylim=(-0.62, -0.10),
+):
     grouped = group_rewards()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(11, 6.5), num="Training Rewards", clear=True)
+    fig, ax = plt.subplots(figsize=(8.5, 5.2), num="Training Rewards", clear=True)
 
     for cfg in TRAINING_REWARD_CONFIGS:
         method = cfg["method"]
@@ -150,11 +159,12 @@ def plot_training_rewards(window=10, output_dir="figures", show=True, band="std"
             label=label,
         )
 
-    ax.set_title("Convergence Comparison of DRL-Based Methods")
-    ax.set_xlabel("Training Iterations")
-    ax.set_ylabel("Average Reward")
+    ax.set_xlabel("Training Iterations", fontsize=14)
+    ax.set_ylabel("Average Low-Level Reward", fontsize=14)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
     ax.grid(True, alpha=0.35)
-    ax.legend()
+    ax.legend(fontsize=12)
     fig.tight_layout()
 
     png_path = output_dir / "training_rewards_drl_methods.png"
