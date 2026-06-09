@@ -70,8 +70,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # user parameter
         #self.C_user = self.rng.uniform(2e8, 5e8, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(1e9, 2e9, [1, self.M])  # computing resource of users  in Hz
-        self.k_fixed = 2
-        self.candidate_n = 10
+        self.k_fixed = int(os.environ.get("UCMEC_K_FIXED", 2))
+        self.candidate_n = int(os.environ.get("UCMEC_CANDIDATE_N", 10))
         assert self.k_fixed <= self.candidate_n, f"k_fixed({self.k_fixed}) > candidate_n({self.candidate_n})"
         assert self.candidate_n <= self.N_sim, f"candidate_n({self.candidate_n}) > N_sim({self.N_sim})"
         self.current_cluster_size = np.full(self.M_sim, self.k_fixed, dtype=np.int32)
