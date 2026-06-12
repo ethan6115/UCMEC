@@ -56,43 +56,10 @@ def make_env(seed):
             return MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True, seed=seed)
     return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
 
-#nlos
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn/run4/models/actor_499.pt"
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_nofrontobs/run1/models/actor_499.pt"
-#MODEL_FLAT = r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run3/models/actor_499.pt"
-
-#best front
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn_bestfront/run3/models/actor_499.pt"
-
-#new g highlow
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_v2/rmappo/hierarchical_pair_scorer_highlow/run1/models/actor_high.pt"
-
-#low mappo
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_mappo/rmappo/hierarchical_heuristic_pair_scorer_highlow/run3/models/actor_high.pt"
-#low mappo only low
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_mappo/rmappo/coop_rnn/run1/models/actor_499.pt"
-
-#high ablation no pair scorer
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_highlow/run3/models/actor_high.pt"
-
-#hierarchical ablation fix power
-#max
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_maxpower/run5/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_maxpower/run5/models/actor_high.pt"
-#min
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower/run5/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower/run5/models/actor_high.pt"
-
-#high ablation pair concat
-#MODEL_LOW = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_499.pt"
-#MODEL_HIGH = r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_pairconcat/run5/models/actor_high.pt"
 
 #high ablation no global and rnn
-MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/models/actor_499.pt")
-MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/models/actor_high.pt")
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt")
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:

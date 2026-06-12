@@ -69,7 +69,7 @@ MODEL_CONFIGS = []
 _add_hier_runs(
     MODEL_CONFIGS,
     method="Proposed_HDRL",
-    runs=["run2", "run3", "run5"],
+    runs=["run1", "run2", "run3"],
     base_dir="results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal",
     high_policy_mode="trained",
     power_variant="normal",
@@ -78,7 +78,7 @@ _add_hier_runs(
 _add_low_heuristic_runs(
     MODEL_CONFIGS,
     method="AccessGreedy",
-    runs=["run2", "run3", "run4"],
+    runs=["run1", "run2", "run3"],
     base_dir="results/MyEnv/nlos_cluster_v2/rmappo/noncoop_rnn",
     high_policy_mode="baseline_topk",
 )
@@ -101,7 +101,7 @@ _add_flat_runs(
 _add_hier_runs(
     MODEL_CONFIGS,
     method="MaxPower",
-    runs=["run2", "run3", "run4"],
+    runs=["run1", "run2", "run3"],
     base_dir="results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_maxpower",
     high_policy_mode="trained",
     power_variant="fixed_max",
@@ -110,7 +110,7 @@ _add_hier_runs(
 _add_hier_runs(
     MODEL_CONFIGS,
     method="MinPower",
-    runs=["run2", "run3", "run4"],
+    runs=["run1", "run2", "run3"],
     base_dir="results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_highlow_minpower",
     high_policy_mode="trained",
     power_variant="fixed_min",

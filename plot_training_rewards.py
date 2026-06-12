@@ -31,9 +31,9 @@ TRAINING_REWARD_CONFIGS = [
     {
         "method": "Proposed_HDRL",
         "runs": [
+            "results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/reward.mat",
             "results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/reward.mat",
             "results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run3/reward.mat",
-            "results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run5/reward.mat",
         ],
     },
     {
