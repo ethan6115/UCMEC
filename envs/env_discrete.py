@@ -10,24 +10,29 @@ from gym import spaces
 import numpy as np
 from envs.env_core import EnvCore
 
-from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
-from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop
-#cpuobs8訓練環境
-from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8 import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8 as MA_UCMEC_dyna_noncoop_cluster_rand
-#from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_bestfront import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_bestfront as MA_UCMEC_dyna_noncoop_cluster_rand
-#from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower_max as MA_UCMEC_dyna_noncoop_cluster_rand
 
+from envs.ucmec_no_front_obs import UCMEC_no_front_obs_env
 
-#切換hierarchical版本
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser as MA_UCMEC_dyna_noncoop_hierarchical
-#hierarchical訓練環境(跑min, max power需切換環境)
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import (
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser as MA_UCMEC_dyna_noncoop_hierarchical_peruser,
+# Low-level baseline 訓練環境：依照實驗手動切換
+from envs.ucmec_access_greedy import (
+    UCMEC_access_greedy_env as UCMEC_low_training_env,
 )
-#from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max as MA_UCMEC_dyna_noncoop_hierarchical_peruser
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_flat import (
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat,
+# from envs.ucmec_fronthaul_greedy import (
+#     UCMEC_fronthaul_greedy_env as UCMEC_low_training_env,
+# )
+
+# Hierarchical 訓練環境：依照實驗手動切換
+from envs.ucmec_hierarchical import (
+    UCMEC_hierarchical_env as UCMEC_hierarchical_training_env,
 )
+# from envs.ucmec_fixed_power import (
+#     UCMEC_fixed_min_power_env as UCMEC_hierarchical_training_env,
+# )
+# from envs.ucmec_fixed_power import (
+#     UCMEC_fixed_max_power_env as UCMEC_hierarchical_training_env,
+# )
+
+from envs.ucmec_flat import UCMEC_flat_env
 
 
 
@@ -41,26 +46,31 @@ class DiscreteActionEnv(object):
         # Decide env here so action/obs semantics stay inside the environment.
         use_hierarchical = getattr(all_args, "use_hierarchical", False) if all_args is not None else False
         use_high_peruser = getattr(all_args, "use_high_peruser", False) if all_args is not None else False
-        use_high_peruser_credit = getattr(all_args, "use_high_peruser_credit", False) if all_args is not None else False
-        use_low_cluster_randomization = getattr(all_args, "use_low_cluster_randomization", False) if all_args is not None else False
+        use_greedy_training_env = getattr(all_args, "use_greedy_training_env", False) if all_args is not None else False
         use_joint_policy = getattr(all_args, "use_joint_policy", False) if all_args is not None else False
         seed = getattr(all_args, "seed", None) if all_args is not None else None
         if use_joint_policy and use_hierarchical:
             raise ValueError("--use_joint_policy and --use_hierarchical are mutually exclusive")
+        if use_greedy_training_env and (use_joint_policy or use_hierarchical):
+            raise ValueError(
+                "--use_greedy_training_env cannot be combined with "
+                "--use_joint_policy or --use_hierarchical"
+            )
         if use_joint_policy:
-            self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(seed=seed)
+            self.env = UCMEC_flat_env(seed=seed)
+
         elif use_hierarchical:
-            if use_high_peruser:
-                # Hotspot per-user env already exposes interval reward in per-user
-                # form, so keep a single env path regardless of credit setting.
-                self.env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(seed=seed)
-            else:
-                self.env = MA_UCMEC_dyna_noncoop_hierarchical(seed=seed)
+            if not use_high_peruser:
+                raise ValueError(
+                    "--use_hierarchical requires --use_high_peruser"
+                )
+            self.env = UCMEC_hierarchical_training_env(seed=seed)
+
+        elif use_greedy_training_env:
+            self.env = UCMEC_low_training_env(seed=seed)
+
         else:
-            if use_low_cluster_randomization:
-                self.env = MA_UCMEC_dyna_noncoop_cluster_rand(seed=seed)
-            else:
-                self.env = MA_UCMEC_dyna_noncoop(seed=seed)
+            self.env = UCMEC_no_front_obs_env(seed=seed)
         self.num_agent = self.env.agent_num
         self.signal_obs_dim = self.env.obs_dim
         self.signal_action_dim = self.env.action_dim

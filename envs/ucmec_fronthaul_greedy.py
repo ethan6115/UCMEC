@@ -2,14 +2,10 @@ import itertools
 
 import numpy as np
 
-from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8 import (
-    MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8,
-)
+from envs.ucmec_access_greedy import UCMEC_access_greedy_env
 
 
-class MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_bestfront(
-    MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8
-):
+class UCMEC_fronthaul_greedy_env(UCMEC_access_greedy_env):
     """
     Low-level training environment with the same best-front AP selection rule
     used by eval_script.py HIGH_POLICY_MODE="best_front".

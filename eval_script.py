@@ -37,6 +37,15 @@ HIGH_POLICY_MODE = _env_str("EVAL_HIGH_POLICY_MODE", "trained")  # "trained" | "
 BASELINE_TOPK_COMBO = (0, 1)
 EVAL_POWER_VARIANT = _env_str("EVAL_POWER_VARIANT", "normal")  # "normal" | "fixed_max" | "fixed_min"
 EVAL_OUTPUT_JSON = _env_str("EVAL_OUTPUT_JSON", "")
+if USE_FLAT_JOINT and USE_HIERARCHICAL:
+    raise ValueError(
+        "EVAL_USE_FLAT_JOINT and EVAL_USE_HIERARCHICAL are mutually exclusive"
+    )
+
+if USE_HIERARCHICAL and not PER_USER:
+    raise ValueError(
+        "Hierarchical evaluation requires EVAL_PER_USER=1"
+    )
 
 SEEDS = [18, 62, 53, 14, 58,
          161, 37, 4, 95, 150,
@@ -48,13 +57,12 @@ SEEDS = [18, 62, 53, 14, 58,
 EPISODES_PER_SEED = 3
 def make_env(seed):
     if USE_FLAT_JOINT:
-        return MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True, seed=seed)
+        return UCMEC_flat_env(render=True, seed=seed)
+
     if USE_HIERARCHICAL:
-        if PER_USER:
-            return make_hier_peruser_env(render=True, seed=seed)
-        else:
-            return MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True, seed=seed)
-    return MA_UCMEC_dyna_noncoop(render=True, seed=seed)
+        return make_hier_peruser_env(render=True, seed=seed)
+
+    return UCMEC_no_front_obs_env(render=True, seed=seed)
 
 
 #high ablation no global and rnn
@@ -63,34 +71,33 @@ MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablat
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:
-    #from envs.MA_UCMEC_dyna_noncoop import MA_UCMEC_dyna_noncoop
-    from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos import MA_UCMEC_dyna_noncoop
-    #from envs.MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower import MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs8_fixedpower_min as MA_UCMEC_dyna_noncoop
-    from envs.MA_UCMEC_dyna_coop import MA_UCMEC_dyna_coop
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_alluser_front_small_clusterobs import MA_UCMEC_dyna_noncoop_hierarchical_alluser
-
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import MA_UCMEC_dyna_noncoop_hierarchical_peruser
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_flat import MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57_fixedpower import (
-        MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max,
-        MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min,
+    from envs.ucmec_no_front_obs import UCMEC_no_front_obs_env
+    from envs.ucmec_hierarchical import UCMEC_hierarchical_env
+    from envs.ucmec_flat import UCMEC_flat_env
+    from envs.ucmec_fixed_power import (
+        UCMEC_fixed_max_power_env,
+        UCMEC_fixed_min_power_env,
     )
+
     from algorithms.algorithm.r_actor_critic import R_Actor
     from algorithms.algorithm.high_actor_critic import HighActor
     from config import get_config
 except ImportError as e:
-    print("匯入模組失敗，請確認 'UCMEC-mmWave-Fronthaul' 資料夾是否在當前目錄下。")
+    print("匯入模組失敗，請確認目前位於 UCMEC 專案根目錄。")
     print(f"錯誤訊息: {e}")
     sys.exit(1)
 
 
 def make_hier_peruser_env(render=True, seed=None):
     if EVAL_POWER_VARIANT == "normal":
-        return MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=render, seed=seed)
+        return UCMEC_hierarchical_env(render=render, seed=seed)
+
     if EVAL_POWER_VARIANT == "fixed_max":
-        return MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max(render=render, seed=seed)
+        return UCMEC_fixed_max_power_env(render=render, seed=seed)
+
     if EVAL_POWER_VARIANT == "fixed_min":
-        return MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min(render=render, seed=seed)
+        return UCMEC_fixed_min_power_env(render=render, seed=seed)
+
     raise ValueError(f"Unsupported EVAL_POWER_VARIANT: {EVAL_POWER_VARIANT}")
 
 
@@ -310,15 +317,7 @@ def evaluate(model_path):
     
     # 2. 建立環境
     print("正在初始化環境...")
-    if USE_FLAT_JOINT:
-        env = MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(render=True)
-    elif USE_HIERARCHICAL:
-        if PER_USER:
-            env = make_hier_peruser_env(render=True)
-        else:
-            env = MA_UCMEC_dyna_noncoop_hierarchical_alluser(render=True)
-    else:
-        env = MA_UCMEC_dyna_noncoop(render=True) # render=True 可能不會顯示畫面，視環境實作而定
+    env = make_env(seed=None)
     # 3. 初始化 Actor 網路
     # 取得單一 Agent 的 observation 和 action space
     # 根據環境程式碼，observation_space 是 Tuple(Box(...), ...)

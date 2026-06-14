@@ -15,13 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-_HOTSPOT_PATH = REPO_ROOT / "envs" / "MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos.py"
-_SPEC = importlib.util.spec_from_file_location("hotspot_env_module", _HOTSPOT_PATH)
-if _SPEC is None or _SPEC.loader is None:
-    raise RuntimeError(f"Failed to load hotspot env module from: {_HOTSPOT_PATH}")
-_MOD = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(_MOD)
-MA_UCMEC_dyna_noncoop_hierarchical_peruser = _MOD.MA_UCMEC_dyna_noncoop_hierarchical_peruser
+from envs.ucmec_hierarchical import UCMEC_hierarchical_env
 
 
 @dataclass
@@ -80,37 +74,55 @@ def summarize(values: np.ndarray) -> MetricSummary:
     )
 
 
-def collect_slot_raw_db(env: MA_UCMEC_dyna_noncoop_hierarchical_peruser) -> Tuple[np.ndarray, np.ndarray]:
+def collect_slot_raw_db(
+    env: UCMEC_hierarchical_env,
+) -> Tuple[np.ndarray, np.ndarray]:
     m_sim = env.M_sim
     n_sim = env.N_sim
+    candidate_n = env.candidate_n
+
     beta_sim = env.beta[:m_sim, :n_sim]
 
-    # Top-10 APs by beta for each simulated user.
-    top10_idx = np.argsort(beta_sim, axis=1)[:, ::-1][:, :10]
+    # Candidate APs used by the current high-level observation.
+    candidate_idx = np.argsort(beta_sim, axis=1)[:, ::-1][:, :candidate_n]
     row_idx = np.arange(m_sim)[:, None]
-    beta_top10 = beta_sim[row_idx, top10_idx]
-    beta_db = 10.0 * np.log10(beta_top10 + 1e-12)
+    beta_candidates = beta_sim[row_idx, candidate_idx]
+    beta_db = 10.0 * np.log10(beta_candidates + 1e-12)
 
-    # Fronthaul pathloss-like feature used in high obs.
-    front_db = np.zeros((m_sim, env.K * 10), dtype=np.float64)
-    for i in range(m_sim):
-        ap_idx = top10_idx[i]
-        for cpu in range(env.K):
-            dist_km = np.maximum(env.distance_matrix_front[ap_idx, cpu], 1e-6)
+    # Raw fronthaul features used by get_global_obs().
+    front_db = np.zeros(
+        (m_sim, env.K * candidate_n),
+        dtype=np.float64,
+    )
+
+    for user_idx in range(m_sim):
+        ap_idx = candidate_idx[user_idx]
+
+        for cpu_idx in range(env.K):
+            distance = np.maximum(
+                env.distance_matrix_front[ap_idx, cpu_idx],
+                1e-6,
+            )
             alpha = np.where(
-                env.link_type[ap_idx, cpu] == 0,
+                env.link_type[ap_idx, cpu_idx] == 0,
                 env.alpha_los,
                 env.alpha_nlos,
             )
-            g_gain = np.maximum(env.G[ap_idx, cpu], 1e-12)
-            pathloss = g_gain * np.power(dist_km, -alpha)
-            front_db[i, cpu * 10 : (cpu + 1) * 10] = 10.0 * np.log10(pathloss + 1e-12)
+            gain = np.maximum(env.G[ap_idx, cpu_idx], 1e-12)
+            pathloss = gain * np.power(distance, -alpha)
+            pathloss_db = 10.0 * np.log10(pathloss + 1e-12)
+
+            start = cpu_idx * candidate_n
+            front_db[
+                user_idx,
+                start:start + candidate_n,
+            ] = pathloss_db
 
     return beta_db.reshape(-1), front_db.reshape(-1)
 
 
 def collect_seed_values(seed: int, episodes: int, slots_per_episode: int) -> Dict[str, np.ndarray]:
-    env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(seed=seed)
+    env = UCMEC_hierarchical_env(render=False, seed=seed)
     beta_all: List[np.ndarray] = []
     front_all: List[np.ndarray] = []
 
@@ -123,10 +135,15 @@ def collect_seed_values(seed: int, episodes: int, slots_per_episode: int) -> Dic
                 beta_all.append(beta_db)
                 front_all.append(front_db)
 
-    return {
+    values = {
         "beta_db": np.concatenate(beta_all, axis=0),
         "front_db": np.concatenate(front_all, axis=0),
     }
+
+    if hasattr(env, "close"):
+        env.close()
+
+    return values
 
 
 def derive_clip_from_seed_quantiles(seed_summaries: Sequence[Dict], metric: str) -> Tuple[float, float]:
@@ -146,7 +163,7 @@ def saturation(values: np.ndarray, lo: float, hi: float) -> Dict[str, float]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Calibrate beta/front clip ranges for hotspot high-level observations."
+        description="Calibrate beta/front clip ranges for hierarchical high-level observations."
     )
     parser.add_argument("--seeds", type=str, default="0-19", help="Seed spec, e.g. 0-29 or 0,2,4,10")
     parser.add_argument("--episodes", type=int, default=60, help="Episodes per seed")
@@ -154,7 +171,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=str,
-        default="results/hotspot_clip_calibration.json",
+        default="results/hierarchical_clip_calibration.json",
         help="Output JSON path",
     )
     parser.add_argument(

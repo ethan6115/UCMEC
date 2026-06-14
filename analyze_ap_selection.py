@@ -13,9 +13,7 @@ from algorithms.algorithm.high_actor_critic import HighActor
 from algorithms.algorithm.r_actor_critic import R_Actor
 from config import get_config
 with contextlib.redirect_stderr(io.StringIO()):
-    from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import (
-        MA_UCMEC_dyna_noncoop_hierarchical_peruser,
-    )
+    from envs.ucmec_hierarchical import UCMEC_hierarchical_env
 from model_configs import MODEL_CONFIGS
 
 
@@ -195,12 +193,12 @@ def _high_rnn_initial_state(env, high_args):
 
 
 def analyze_run(cfg, device):
-    env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=False, seed=0)
+    env = UCMEC_hierarchical_env(render=False, seed=0)
     if env.candidate_n != EXPECTED_CANDIDATE_N or env.k_fixed != EXPECTED_K_FIXED:
         raise RuntimeError(
             f"Expected candidate_n={EXPECTED_CANDIDATE_N}, k_fixed={EXPECTED_K_FIXED}, "
             f"but env has candidate_n={env.candidate_n}, k_fixed={env.k_fixed}. "
-            "Please restore the default obs57 environment before running this analysis."
+            "Please restore the default hierarchical environment before running this analysis."
         )
 
     args, high_args, low_actor, high_actor = _load_actors(env, cfg, device)

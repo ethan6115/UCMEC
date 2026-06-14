@@ -234,10 +234,10 @@ def get_config():
     )
     parser.add_argument("--hierarchical_interval", type=int, default=10)
     parser.add_argument(
-        "--use_low_cluster_randomization",
+        "--use_greedy_training_env",
         action="store_true",
         default=False,
-        help="for non-hierarchical env: sample episode-level cluster size k in [1,10] and append cluster_size_norm to low-level obs",
+        help="use the selected greedy baseline environment for low-level training",
     )
     parser.add_argument(
         "--use_high_peruser",

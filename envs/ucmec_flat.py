@@ -1,13 +1,11 @@
 import numpy as np
 from gym import spaces
 
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import (
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser,
-)
+from envs.ucmec_hierarchical import UCMEC_hierarchical_env
 
 
-class MA_UCMEC_dyna_noncoop_hierarchical_peruser_flat(
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser
+class UCMEC_flat_env(
+    UCMEC_hierarchical_env
 ):
     """
     Flat joint-policy environment for a single-policy PPO baseline.

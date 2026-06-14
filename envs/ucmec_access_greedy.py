@@ -1,26 +1,24 @@
 import numpy as np
 from gym import spaces
 
-from envs.MA_UCMEC_dyna_noncoop_cluster_rand import MA_UCMEC_dyna_noncoop_cluster_rand
+from envs.ucmec_no_front_obs import UCMEC_no_front_obs_env
 
 
-class MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs(MA_UCMEC_dyna_noncoop_cluster_rand):
+class UCMEC_access_greedy_env(UCMEC_no_front_obs_env):
     """
-    Cluster-rand style low-level environment with obs aligned to
-    hotspot_nlos_obs57_heurlow low-level obs:
+    Low-level environment with 8-dim observation:
       [task_size, task_density, omega_last, p_last, delay_last_clip,
-       cluster_size_norm, cpu_front_quality_0, cpu_front_quality_1, cpu_front_quality_2]
+       cpu_front_quality_0, cpu_front_quality_1, cpu_front_quality_2]
 
     Notes:
-    - Dynamics, channel, delay, reward, and cluster policy are inherited.
+    - Inherits all dynamics/reward/channel/process from big_3_2_nlos base env.
     - Only low-level observation construction is changed.
     """
 
     def __init__(self, render=False, seed=None):
         super().__init__(render=render, seed=seed)
 
-        # Match heurlow low-level observation layout and normalization style.
-        self.obs_dim = 9
+        self.obs_dim = 8
         self.obs_low = np.zeros(self.obs_dim, dtype=np.float32)
         self.obs_high = np.ones(self.obs_dim, dtype=np.float32)
         self.observation_space = spaces.Tuple(
@@ -37,7 +35,6 @@ class MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs(MA_UCMEC_dyna_noncoop_cluster_ra
             )
         )
 
-        # Use the same clipping range as obs57_heurlow for CPU fronthaul quality.
         self.front_db_clip = (-112.0, -29.0)
         self.cpu_front_quality = np.zeros((self.M_sim, self.K), dtype=np.float32)
 
@@ -71,19 +68,20 @@ class MA_UCMEC_dyna_noncoop_big_3_2_nlos_cpuobs(MA_UCMEC_dyna_noncoop_cluster_ra
 
         self.cpu_front_quality = quality
 
-    def _append_cluster_size_norm(self, obs_list):
-        # Keep cluster-rand behavior for the cluster-size feature.
-        obs_cluster_size = self.cluster_size
-        if self.use_hybrid_cluster2_los:
-            obs_cluster_size = self.hybrid_obs_cluster_size
-        cluster_norm = np.array([obs_cluster_size / 10.0], dtype=np.float32)
-
-        # Refresh quality from the current selected AP cluster.
+    def _append_cpu_front_quality(self, obs_list):
         self._compute_cpu_front_quality()
-
         out = []
         for i, obs in enumerate(obs_list):
             obs_np = np.asarray(obs, dtype=np.float32)
             cpu_q = self.cpu_front_quality[i].astype(np.float32)
-            out.append(np.concatenate([obs_np, cluster_norm, cpu_q], axis=0))
+            out.append(np.concatenate([obs_np, cpu_q], axis=0))
         return out
+
+    def reset(self):
+        obs = super().reset()
+        return self._append_cpu_front_quality(obs)
+
+    def step(self, action):
+        obs, reward, done, info = super().step(action)
+        obs = self._append_cpu_front_quality(obs)
+        return [obs, reward, done, info]

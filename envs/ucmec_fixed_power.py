@@ -1,14 +1,11 @@
 import numpy as np
 from gym import spaces
 
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import (
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser,
-)
+from envs.ucmec_hierarchical import UCMEC_hierarchical_env
 
 
-class MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower(
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser
-):
+
+class UCMEC_fixed_power_env(UCMEC_hierarchical_env):
     """
     Hierarchical env with fixed low-level transmit power.
 
@@ -58,15 +55,11 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower(
         return 0, 0
 
 
-class MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_min(
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower
-):
+class UCMEC_fixed_min_power_env(UCMEC_fixed_power_env):
     def __init__(self, render=False, seed=None):
         super().__init__(render=render, seed=seed, fixed_power_mode="min")
 
 
-class MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower_max(
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser_fixedpower
-):
+class UCMEC_fixed_max_power_env(UCMEC_fixed_power_env):
     def __init__(self, render=False, seed=None):
         super().__init__(render=render, seed=seed, fixed_power_mode="max")

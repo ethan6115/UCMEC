@@ -5,8 +5,9 @@ import numpy as np
 import math
 import itertools
 import cvxpy as cp
+import os
 
-class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
+class UCMEC_hierarchical_env(object):
     def __init__(self, render: bool = False, seed=None):
         
         # Initialization
@@ -17,8 +18,12 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.varsig = 16  # number of antennas of each AP
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
-        self.M_sim = 10  # number of users for simulation
-        self.N_sim = 50  # number of APs for simulation
+        self.M_sim = int(os.environ.get("UCMEC_M_SIM", 10))  # number of users for simulation
+        self.N_sim = int(os.environ.get("UCMEC_N_SIM", 50))  # number of APs for simulation
+        if self.M_sim > self.M:
+            raise ValueError(f"UCMEC_M_SIM({self.M_sim}) > M({self.M})")
+        if self.N_sim > self.N:
+            raise ValueError(f"UCMEC_N_SIM({self.N_sim}) > N({self.N})")
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
@@ -32,19 +37,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
         self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
 
-        '''
-        self.n_hotspot_clusters = 10
-        self.hotspot_cluster_radius = 40
-        # 先產生前 N_sim 個 hotspot AP
-        aps_active = self._place_hotspot_aps(
-            n_clusters=self.n_hotspot_clusters,
-            cluster_radius=self.hotspot_cluster_radius,
-        )  # shape: (N_sim, 2)
-
-        # 再組成完整 N 個 AP（避免後面 for j in range(self.N) 越界）
-        self.locations_aps = self.rng.random([self.N, 2]) * 900
-        self.locations_aps[:self.N_sim, :] = aps_active
-        '''
         # mobility
         self.user_dest = None
         self.user_speed = None
@@ -78,8 +70,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # user parameter
         #self.C_user = self.rng.uniform(2e8, 5e8, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(1e9, 2e9, [1, self.M])  # computing resource of users  in Hz
-        self.k_fixed = 2
-        self.candidate_n = 10
+        self.k_fixed = int(os.environ.get("UCMEC_K_FIXED", 2))
+        self.candidate_n = int(os.environ.get("UCMEC_CANDIDATE_N", 10))
         assert self.k_fixed <= self.candidate_n, f"k_fixed({self.k_fixed}) > candidate_n({self.candidate_n})"
         assert self.candidate_n <= self.N_sim, f"candidate_n({self.candidate_n}) > N_sim({self.N_sim})"
         self.current_cluster_size = np.full(self.M_sim, self.k_fixed, dtype=np.int32)
@@ -127,8 +119,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # fronthaul channel parameter
         # fronthaul channel
         # front_chan = np.zeros([N, K])
-        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  #嘗試調整成comm limit，2改為1
-        self.epsilon = 3e-3  # blockage density
+        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  
+        self.epsilon = float(os.environ.get("UCMEC_EPSILON", 3e-3))  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
         self.alpha_nlos = 4  # path-loss exponent for NLOS links
@@ -170,13 +162,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         self.n_agents = self.M_sim
         self.agent_num = self.n_agents
         self.mask_local = False  # True=9 actions (no local), False=10 actions (with local)
-        # Low-level heuristic mode for high-level pretraining:
-        #   - CPU is selected by argmax(cpu_front_quality)
-        #   - power can be fixed max or follow low-level action index
-        self.low_heuristic_only = False
-        self.low_heuristic_cpu = True
-        self.low_heuristic_power = "max"  # "max" | "follow_action"
-        self.low_heuristic_power_idx = 2  # for 3-level power index {0,1,2}, 2 means max
         self.obs_dim = 8  # 5 original + 3 cpu_front_quality (cluster_size removed)
         self.action_dim = 9 if self.mask_local else 10
         self._render = render
@@ -184,16 +169,11 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         # High-level observation: top-10 beta + top-10 inter-beta + delay/uplink/front + mobility + fronthaul/AP preference stats.
         self.max_delay = 2.0
         self._ap_combos = list(itertools.combinations(range(self.candidate_n), self.k_fixed))
-        # Tuned normalization ranges (300x300 setting, percentile-based).
         self.beta_db_clip = (-121.0, -95.5)
         self.front_db_clip = (-112.0, -29.0)
         # High-level action: per-user AP-combo index.
         self.high_action_dim = len(self._ap_combos)
         self.high_action_space = spaces.MultiDiscrete([self.high_action_dim] * self.M_sim)
-        # obs = beta(cn) + ap_mask(cn) + delay/uplink/front/satisfy(4)
-        #       + pos(2) + speed(1) + front_stats(K*cn)
-        # Removed low-behavior features from high-level obs:
-        #   offload_ratio(1), cpu_pref(K), local_pref(1)
         self.high_obs_dim = (self.K + 2) * self.candidate_n + 7
         self.high_observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.M_sim, self.high_obs_dim), dtype=np.float32
@@ -280,24 +260,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
             self.opt_params.append((p_tasks, p_local, p_uplink))
             self.opt_vars.append(C_scaled)
 
-    def _place_hotspot_aps(self, n_clusters=5, cluster_radius=80):
-        """Place the first N_sim APs around random hotspot centers."""
-        self.hotspot_centers = self.rng.random((n_clusters, 2)) * 800 + 50
-        aps_per_cluster = self.N_sim // n_clusters
-        locations = []
-
-        for c_idx in range(n_clusters):
-            cx, cy = self.hotspot_centers[c_idx]
-            n_ap = aps_per_cluster if c_idx < n_clusters - 1 else self.N_sim - len(locations)
-
-            for _ in range(n_ap):
-                angle = self.rng.uniform(0, 2 * np.pi)
-                r = cluster_radius * self.rng.uniform(0.7, 1.3)
-                x = np.clip(cx + r * np.cos(angle), 0, 900)
-                y = np.clip(cy + r * np.sin(angle), 0, 900)
-                locations.append([x, y])
-
-        return np.array(locations)
 
     def compute_interval_reward(self):
         """Compute reward from accumulated interval stats.
@@ -551,10 +513,17 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         delay_norm = (self._segment_avg_delay / self.max_delay).reshape(self.M_sim, 1)
         uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
         front_norm = (self._segment_avg_front / self.max_delay).reshape(self.M_sim, 1)
-        offload_satisfy = self._segment_offload_success_ratio.reshape(self.M_sim, 1).astype(np.float32)
         pos_norm = (self.locations_users[:self.M_sim, :2] / 900.0).astype(np.float32)
         max_speed = 20 * self.tau_c
-        speed_norm = (self.user_speed[:self.M_sim, 0] / max_speed).reshape(self.M_sim, 1).astype(np.float32)
+        # Directional velocity (vx, vy), normalized by max speed to roughly [-1, 1].
+        if self.is_mobile and self.user_dest is not None and self.user_speed is not None:
+            vel_vec = (self.user_dest[:self.M_sim, :2] - self.locations_users[:self.M_sim, :2]).astype(np.float32)
+            vel_dist = np.linalg.norm(vel_vec, axis=1, keepdims=True)
+            vel_dir = vel_vec / np.maximum(vel_dist, 1e-6)
+            speed_mag_norm = (self.user_speed[:self.M_sim, 0:1] / max_speed).astype(np.float32)
+            speed_norm = (vel_dir * speed_mag_norm).astype(np.float32)
+        else:
+            speed_norm = np.zeros((self.M_sim, 2), dtype=np.float32)
         obs = np.concatenate(
             [
                 beta_norm,
@@ -562,7 +531,6 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
                 delay_norm,
                 uplink_norm,
                 front_norm,
-                offload_satisfy,
                 pos_norm,
                 speed_norm,
                 front_stats,
@@ -775,20 +743,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
         p_current_idx_record = np.zeros([self.M_sim], dtype=np.int32)
 
         for i in range(self.M_sim):
-            omega_action, p_current_idx = self.action_mapping(action[i])
-            if self.low_heuristic_only and self.low_heuristic_cpu:
-                # Heuristic low-level CPU: choose the CPU with best bottleneck fronthaul quality.
-                # cpu_front_quality is in [0,1], higher is better.
-                omega_current[i] = int(np.argmax(self.cpu_front_quality[i])) + 1
-            else:
-                omega_current[i] = omega_action
-            if self.low_heuristic_only:
-                if self.low_heuristic_power == "max":
-                    p_current_idx = int(self.low_heuristic_power_idx)
-                elif self.low_heuristic_power == "follow_action":
-                    p_current_idx = int(p_current_idx)
-                else:
-                    raise ValueError(f"Unknown low_heuristic_power mode: {self.low_heuristic_power}")
+
+            omega_current[i], p_current_idx = self.action_mapping(action[i])
             p_current_idx_record[i] = p_current_idx
             if omega_current[i] == 0:
                 self._segment_local_counts[i, 0] += 1.0
@@ -967,7 +923,8 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
+            #reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
+            reward[i, 0] = -total_delay_clip[i, 0]
         
         # === 每個 time step 的統計量 (之後會塞進 info) ===
         # Average Total Delay (所有 user)
@@ -1109,7 +1066,7 @@ class MA_UCMEC_dyna_noncoop_hierarchical_peruser(object):
 
 
 if __name__ == "__main__":
-    env = MA_UCMEC_dyna_noncoop_hierarchical_peruser(render=False, seed=5)
+    env = UCMEC_hierarchical_env(render=False, seed=5)
     obs = env.reset()
     step_idx = 0
     # run a single episode

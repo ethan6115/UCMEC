@@ -25,8 +25,8 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 sys.path.insert(0, _PROJECT_ROOT)
 
-from envs.MA_UCMEC_dyna_noncoop_hierarchical_peruser_hotspot_nlos_obs57 import (
-    MA_UCMEC_dyna_noncoop_hierarchical_peruser as Obs57Env,
+from envs.ucmec_hierarchical import (
+    UCMEC_hierarchical_env as Obs57Env,
 )
 
 # ── config ────────────────────────────────────────────────────────────────────
