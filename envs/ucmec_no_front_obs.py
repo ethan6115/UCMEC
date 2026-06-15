@@ -18,7 +18,7 @@ class UCMEC_no_front_obs_env(object):
         self.K = 3  # number of CPUs
         self.P_max = 0.1  # maximum transmit power of user / pilot power
         self.M_sim = 10  # number of users for simulation
-        self.N_sim = 50  # number of APs for simulation 50
+        self.N_sim = 50  # number of APs for simulation 
         self.Task_size = np.zeros([1, self.M])
         self.Task_density = np.zeros([1, self.M])
         self.cluster_matrix = None
@@ -28,21 +28,6 @@ class UCMEC_no_front_obs_env(object):
         # locations of users and APs
         self.locations_users = self.rng.random([self.M, 2]) * 900  # 2-D location of users
         self.locations_aps = self.rng.random([self.N, 2]) * 900  # 2-D location of APs
-
-        '''
-        self.n_hotspot_clusters = 10
-        self.hotspot_cluster_radius = 40
-        # 先產生前 N_sim 個 hotspot AP
-        aps_active = self._place_hotspot_aps(
-            n_clusters=self.n_hotspot_clusters,
-            cluster_radius=self.hotspot_cluster_radius,
-        )  # shape: (N_sim, 2)
-
-        # 再組成完整 N 個 AP（避免後面 for j in range(self.N) 越界）
-        self.locations_aps = self.rng.random([self.N, 2]) * 900
-        self.locations_aps[:self.N_sim, :] = aps_active
-        '''
-
 
         # mobility
         self.user_dest = None
@@ -57,8 +42,7 @@ class UCMEC_no_front_obs_env(object):
         self.locations_cpu[1, 1] = 300
         self.locations_cpu[2, 0] = 450
         self.locations_cpu[2, 1] = 600
-        # self.locations_cpu[3, 0] = 600
-        # self.locations_cpu[3, 1] = 600
+
 
         # calculate distance between APs and users MxN matrix
         self.distance_matrix = np.zeros([self.M, self.N])
@@ -76,19 +60,18 @@ class UCMEC_no_front_obs_env(object):
 
         # edge computing parameter
         # user parameter
-        #self.C_user = self.rng.uniform(2e9, 5e9, [1, self.M])  # 根據論文修改為2e9, 5e9
         self.C_user = self.rng.uniform(1e9, 2e9, [1, self.M])  # computing resource of users  in Hz
         
         self.cluster_size = 2
 
         # edge server parameter
-        self.C_edge = self.rng.uniform(30e9, 50e9, [self.K, 1])  # computing resource of edge server in CPU  20e9, 40e9
+        self.C_edge = self.rng.uniform(30e9, 50e9, [self.K, 1])  # computing resource of edge server in CPU 
 
         # access channel parameter
         self.tau_c = 0.1  # coherence time = 100ms
         self.L = 140.7
         self.d_0 = 10  # path-loss distance threshold
-        self.d_1 = 50  # path-loss distance threshold，從50改為論文的15
+        self.d_1 = 50  # path-loss distance threshold
         self.PL = np.zeros([self.M, self.N])  # path-loss in dB
         self.beta = np.zeros([self.M, self.N])  # large scale fading
         self.gamma = np.zeros([self.M, self.N])
@@ -96,7 +79,7 @@ class UCMEC_no_front_obs_env(object):
         self.delta = 0.5  # parameter in Eq. (5)
         self.mu = np.zeros([self.M, self.N])  # shadow fading parameter
         self.h = np.zeros([self.M, self.N, self.varsig], dtype=complex)  # small scale fading
-        self.bandwidth_a = 20e6  # bandwidth of access channel，從2改為論文的20 #嘗試調整成comm limit，20改為10
+        self.bandwidth_a = 20e6  # bandwidth of access channel
         self.noise_access = 3.9810717055349565e-21 * self.bandwidth_a  # noise of access channel -> -174 dbm/Hz
         self.f_carrier = 1.9e9  # carrier frequency in Hz
         self.h_ap = 15  # antenna height of AP
@@ -121,23 +104,12 @@ class UCMEC_no_front_obs_env(object):
         if np.any(near_mask):   #3. d < d0
             term = (self.d_1 / 1000.0) ** 1.5 * (self.d_0 / 1000.0) ** 2
             self.PL[near_mask] = -self.L - 10 * np.log10(term)
-        '''舊版
-        for i in range(self.M):
-            for j in range(self.N):
-                # three slope path-loss model
-                if self.distance_matrix[i, j] > self.d_1:
-                    self.PL[i, j] = -self.L - 35 * np.log10(self.distance_matrix[i, j] / 1000)
-                elif self.d_0 <= self.distance_matrix[i, j] <= self.d_1:
-                    self.PL[i, j] = -self.L - 10 * np.log10(
-                        (self.d_1 / 1000) ** 1.5 * (self.distance_matrix[i, j] / 1000) ** 2)
-                else:
-                    self.PL[i, j] = -self.L - 10 * np.log10((self.d_1 / 1000) ** 1.5 * (self.d_0 / 1000) ** 2)
-        '''
+
 
         # fronthaul channel parameter
         # fronthaul channel
         # front_chan = np.zeros([N, K])
-        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz?  2e9
+        self.bandwidth_f = 2e9  # bandwidth of fronthaul channel 2GHz
         self.epsilon = 3e-3  # blockage density
         self.p_ap = 1  # transmit power of APs (30 dBm = 1 W)
         self.alpha_los = 2.5  # path-loss exponent for LOS links
@@ -146,7 +118,7 @@ class UCMEC_no_front_obs_env(object):
         self.psi_nlos = 2  # Nakagami fading parameter for NLOS links
         self.noise_front = 1.380649 * 1e-23 * 290 * 9 * self.bandwidth_f  # fronthaul channel noise variance #原始code有錯，大了10倍 
         self.G = np.zeros([self.N, self.K])  # random antenna gain
-        self.fai = math.pi / 6  # Main lobe beamwidth 原為math.pi / 6
+        self.fai = math.pi / 6  # Main lobe beamwidth 
         self.Gm = 63.1  # Directivity gain of main lobes
         self.Gs = 0.631  # Directivity gain of side lobes
         self.Gain = np.array(
@@ -157,18 +129,7 @@ class UCMEC_no_front_obs_env(object):
 
         self.P_los = np.zeros([self.N, self.K])  # probability of LOS links
         self.link_type = np.zeros([self.N, self.K])  # type of fronthaul links
-        '''改為每episode重抽一次，而非固定
-        for i in range(self.N):
-            for j in range(self.K):
-                self.P_los[i, j] = np.exp(-self.epsilon * self.distance_matrix_front[i, j])
-                self.link_type[i, j] = self.rng.choice([0, 1], p=[self.P_los[i, j],
-                                                                   1 - self.P_los[i, j]])  # 0 for LOS, 1 for NLOS
-                # if link_type[i, j] == 0:  # LOS link
-                #     front_chan[i, j] = np.random.gamma(2, 1 / psi_los)  # Nakagami channel gain
-                # else:  # NLOS link
-                #     front_chan[i, j] = np.random.gamma(2, 1 / psi_nlos)  # Nakagami channel gain
-                self.G[i, j] = self.rng.choice(self.Gain, p=self.Gain_pro.ravel())
-        '''
+        
         # pilot assignment
         self.tau_p = self.M  # length of pilot symbol
         self.pilot_matrix = np.zeros([self.M, self.tau_p])
@@ -181,17 +142,13 @@ class UCMEC_no_front_obs_env(object):
         self.agent_num = self.n_agents
         self.obs_dim = 5  # set the observation dimension of agents
         self.action_dim = 10
-        self.max_delay = 2.0  # 超過 1 秒視為「同樣很爛」，避免 reward 爆
+        self.max_delay = 2.0  # 超過 2 秒視為同樣很爛，避免 reward 爆
         self._render = render
-        # action space: [omega_1,omega_2,...,omega_K,p]  K+1 continuous vector for each agent
-        # a in {0,1,2,3,4}, p in {0, 1, 2, 3, 4} (totally 5 levels (p+1)/5*100 mW)
         self.omega_last = np.zeros([self.M_sim])
         self.p_last = np.zeros([self.M_sim])
         self.p_idx_last = np.zeros([self.M_sim], dtype=np.int32)
         self.delay_last = np.zeros([self.M_sim, 1])
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(10)] * self.n_agents))
-        # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
-        # r in [0, 10e8]
         self.norm_factor = np.array([819200.0, 1000.0, 3.0, self.P_max, self.max_delay])   #對obs做正規化用的，根據論文修改100000改為819200
         self.obs_low = np.zeros(self.obs_dim)  # [0, 0, 0, 0, 0]
         self.obs_high = np.ones(self.obs_dim)  # [1, 1, 1, 1, 1]
@@ -226,16 +183,13 @@ class UCMEC_no_front_obs_env(object):
             C_scaled = cp.Variable(self.M_sim, nonneg=True)
             
             # 目標函數
-            # 使用 multiply(p_mask, ...) 來讓沒分配的 user 不影響 Objective
             # 為了避免除以 0，分母加上微小值 1e-6
             process_delay = cp.multiply(p_tasks, cp.inv_pos(C_scaled + 1e-6))
             total_delay = cp.maximum(p_local, p_uplink + process_delay)
             
-            objective = cp.Minimize(cp.sum(total_delay))    #不用懲罰項
-            
-            # 限制條件：只有被 mask 選中的 user 消耗的 CPU 總量受限
-            # 實際上只要限制 sum(C_scaled) 即可，因為最佳解會讓沒用到的 C 趨近 0
-            max_c_scaled = self.C_edge[k, 0] / 1e9 # 假設 1e9 是你的 SCALE_FACTOR
+            objective = cp.Minimize(cp.sum(total_delay))    
+
+            max_c_scaled = self.C_edge[k, 0] / 1e9 #  1e9 是 SCALE_FACTOR
             constraints = [cp.sum(C_scaled) <= max_c_scaled]
             
             prob = cp.Problem(objective, constraints)
@@ -245,43 +199,11 @@ class UCMEC_no_front_obs_env(object):
             self.opt_params.append((p_tasks, p_local, p_uplink))
             self.opt_vars.append(C_scaled)
 
-    def _place_hotspot_aps(self, n_clusters=5, cluster_radius=80):
-        """
-        Matérn Cluster Process：
-        1. 先隨機選 n_clusters 個熱點中心
-        2. 每個中心周圍的圓環內（ring）密集撒 AP
-        用圓環而非圓面，讓 user 在中心時被均勻包圍
-        
-        n_clusters：熱點數量，對應體育館/廣場等場景
-        cluster_radius：圓環半徑，決定 user 到 AP 的典型距離
-        """
-        # 熱點中心（存起來給 user 移動模型用）
-        self.hotspot_centers = self.rng.random((n_clusters, 2)) * 800 + 50
-        # +100 避免熱點太靠近邊界，讓圓環完整
-
-        aps_per_cluster = self.N_sim // n_clusters  # 每個熱點分配的 AP 數
-        locations = []
-
-        for c_idx in range(n_clusters):
-            cx, cy = self.hotspot_centers[c_idx]
-            n_ap = aps_per_cluster if c_idx < n_clusters - 1 else self.N_sim - len(locations)
-
-            for _ in range(n_ap):
-                # 在圓環上均勻撒點（角度均勻，半徑略有抖動）
-                angle  = self.rng.uniform(0, 2 * np.pi)
-                # 半徑在 [radius*0.7, radius*1.3] 之間有隨機抖動
-                # 讓 AP 不是完美圓形，增加隨機性
-                r = cluster_radius * self.rng.uniform(0.7, 1.3)
-                x = np.clip(cx + r * np.cos(angle), 0, 900)
-                y = np.clip(cy + r * np.sin(angle), 0, 900)
-                locations.append([x, y])
-
-        return np.array(locations)
 
     def action_mapping(self, action_agent):
         omega_agent = 0
         p_agent = 0
-        # Transform the action space form MultiDiscrete to Discrete (1+3*3=10 cases)
+        
         if action_agent[0] == 1:  # local processing
             omega_agent = 0
             p_agent = 0
@@ -314,7 +236,7 @@ class UCMEC_no_front_obs_env(object):
             p_agent = 3
         return omega_agent, p_agent
     
-    def cluster(self):  #改
+    def cluster(self): #改
         cluster_matrix = np.zeros([self.M_sim, self.N_sim], dtype=int)
         ap_index_list = np.zeros([self.M_sim, self.cluster_size], dtype=int)
 
@@ -329,7 +251,7 @@ class UCMEC_no_front_obs_env(object):
                 cluster_matrix[i, int(k_idx)] = 1
         return cluster_matrix
 
-    def uplink_rate_cal(self, p, omega, cluster_matrix, theta):  # calculate the uplink transmit rate in Eq. (12) 改成新版
+    def uplink_rate_cal(self, p, omega, cluster_matrix, theta):  # calculate the uplink transmit rate in Eq. (12) 
 
         uplink_rate_access = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
@@ -343,7 +265,6 @@ class UCMEC_no_front_obs_env(object):
                     sum_theta += theta[i, j]
                     noise_term += self.noise_access * theta[i, j]
 
-            # useful (magnitude)^2 * p * varsig  (保留原公式)
             useful = (sum_theta ** 2) * p[i] * self.varsig
 
             # interference from other users
@@ -354,12 +275,7 @@ class UCMEC_no_front_obs_env(object):
                 for j in range(self.N_sim):
                     if cluster_matrix[i, j] == 1:
                         inter_term += theta[i, j] * self.beta[k, j] * p[k]
-            '''
-            #加入其他M個user的干擾
-            for j in range(self.N_sim):
-                if cluster_matrix[i, j] == 1:
-                    inter_term += theta[i, j] * np.sum(self.beta[self.M_sim:self.M, j]) * self.P_max
-            '''
+            
             SINR = useful / (inter_term + noise_term)
             raw_rate = self.bandwidth_a * np.log2(1 + SINR)
             uplink_rate_access[i, 0] = max(raw_rate, 1e-9)  # clip，避免 0
@@ -469,11 +385,7 @@ class UCMEC_no_front_obs_env(object):
         
         # 回傳observation
         self.step_num = 0 
-        '''
-        self.Task_size = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
-        #self.Task_size = self.rng.uniform(50000, 100000, [1, self.M])
-        self.Task_density = self.rng.uniform(500, 1000, [1, self.M])
-        '''
+        
         #調整task大小跟密度試試
         self.Task_size = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
         self.Task_density = self.rng.uniform(500, 1000, [1, self.M])
@@ -507,7 +419,6 @@ class UCMEC_no_front_obs_env(object):
                 dy = self.user_dest[i, 1] - self.locations_users[i, 1]
                 dist = math.sqrt(dx * dx + dy * dy)
 
-                # 該 user 本 step 可走的距離（速度單位 = m / tau_c，一個 step 就走這麼多）
                 step_dist = self.user_speed[i, 0]
 
                 if dist <= 1e-6:
@@ -537,12 +448,7 @@ class UCMEC_no_front_obs_env(object):
         # distance
         diff = self.locations_users[:, np.newaxis, :] - self.locations_aps[np.newaxis, :, :]
         self.distance_matrix = np.sqrt(np.sum(diff**2, axis=2))
-        '''舊版
-        for i in range(self.M):
-            for j in range(self.N):
-                self.distance_matrix[i, j] = math.sqrt((self.locations_users[i, 0] - self.locations_aps[j, 0]) ** 2
-                                                       + (self.locations_users[i, 1] - self.locations_aps[j, 1]) ** 2)
-        '''
+        
         # pathloss
         d_km = self.distance_matrix / 1000.0
         # 建立布林遮罩
@@ -560,54 +466,22 @@ class UCMEC_no_front_obs_env(object):
             self.PL[near_mask] = -self.L - 10 * np.log10(term)
         
 
-        '''
-        # 1. 生成隨機參數 (一次生成整個矩陣，取代迴圈內生成)
-        kappa_1 = self.rng.standard_normal((1, self.N))  # 形狀: (1, N)    從rand改成randn，才符合論文的公式
-        kappa_2 = self.rng.standard_normal((self.M, 1))  # 形狀: (M, 1)，轉置以便廣播  從rand改成randn，才符合論文的公式
-
-        # 2. 計算 Shadow Fading (mu) - 利用 Broadcasting
-        # (1, N) 與 (M, 1) 運算會自動廣播成 (M, N) 矩陣
-        self.mu = np.sqrt(self.delta) * kappa_1 + np.sqrt(1 - self.delta) * kappa_2
-        '''
+        
         # 3. 計算 Large Scale Fading (beta) - 矩陣直接運算
         # self.PL 和 self.mu 都是 (M, N) 矩陣，直接進行元素級運算
         self.beta = np.power(10, self.PL / 10.0) * np.power(10, (self.sigma_s * self.mu) / 10.0)
         
-        '''
-        # 4. 計算 Small Scale Fading (h) - 一次生成所有亂數
-        # 形狀: (M, N, varsig)
-        #self.h_real = self.rng.normal(loc=0, scale=0.5, size=(self.M, self.N, self.varsig))
-        #self.h_imag = self.rng.normal(loc=0, scale=0.5, size=(self.M, self.N, self.varsig))
-        #加速h計算
-        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_real)
-        self.rng.standard_normal(size=(self.M, self.N, self.varsig), dtype=np.float64, out=self.h_imag)
-        self.h_real *= 0.5
-        self.h_imag *= 0.5
-
-        self.h = self.h_real + 1j * self.h_imag
-
-        # 5. 計算 Access Channel - 利用 Broadcasting
-        # self.beta 形狀是 (M, N)，需要擴展維度變成 (M, N, 1) 才能跟 (M, N, varsig) 的 h 相乘
-        self.access_chan = np.sqrt(self.beta)[:, :, np.newaxis] * self.h
-        '''
         # MMSE channel estimation(一樣改為numpy版本)
-        '''
-        theta = np.zeros([self.M, self.N])
-        for i in range(self.M):
-            for j in range(self.N):
-                theta[i, j] = self.tau_p * self.P_max * (self.beta[i, j] ** 2) / (
-                        self.tau_p * self.P_max * self.beta[i, j] + self.noise_access)
-        '''
         theta = (self.tau_p * self.P_max * (self.beta ** 2)) / (self.tau_p * self.P_max * self.beta + self.noise_access)
         
         
-        # 根據論文將cluster改為每10個time slot做一次
+        # 將cluster改為每10個time slot做一次
         if self.step_num == 1 or self.step_num % 10 == 0:
             self.cluster_matrix = self.cluster()
         cluster_matrix = self.cluster_matrix
-        
-        #cluster_matrix = self.cluster()
 
+
+        
         # obtain the action
         omega_current = np.zeros([self.M_sim])
         p_current = np.zeros([self.M_sim])
@@ -619,7 +493,7 @@ class UCMEC_no_front_obs_env(object):
             p_current_idx_record[i] = p_current_idx
             # --- [修正：確保數據一致性] ---
             if omega_current[i] == 0:
-                p_current[i] = 0.0  # 讓 Agent 明確看到 "0"
+                p_current[i] = 0.0  # local明確設為0
             else:
                 p_current[i] = (p_current_idx + 1) * p_level
         # print("Chosen CPU ID:", omega_current)
@@ -650,7 +524,7 @@ class UCMEC_no_front_obs_env(object):
 
         # fronthaul delay
         front_delay = np.zeros([self.M_sim, 1])
-        for i in range(self.M_sim): #原寫法不合理
+        for i in range(self.M_sim): 
             if omega_current[i] != 0:
                 ap_idx = np.where(cluster_matrix[i, :] == 1)[0]
                 # 算出每個 AP 的 fronthaul delay
@@ -687,8 +561,6 @@ class UCMEC_no_front_obs_env(object):
             uplink_val = np.zeros(self.M_sim)
             
             # 填入目前分配給 CPU i 的 user 數據
-            # 這裡假設你有個邏輯能快速找出哪些 user 在這個 CPU (例如透過 omega_current)
-            # 範例邏輯：
             has_user = False
             for u_idx in range(self.M_sim):
                 if task_mat[u_idx, i] > 0: # 判斷該 user 是否分配給此 CPU
@@ -714,7 +586,7 @@ class UCMEC_no_front_obs_env(object):
             
             # 3. 求解 (Warm Start 加速)
             try:
-                # 放寬 tolerance 到 1e-2 或 1e-3 對 RL 訓練通常沒影響，但速度快很多
+                # 放寬 tolerance 速度快很多
                 self.opt_probs[i].solve(solver=cp.CLARABEL, warm_start=True, 
                                         tol_gap_abs=1e-2, tol_gap_rel=1e-2, verbose=False)
                 
@@ -723,7 +595,6 @@ class UCMEC_no_front_obs_env(object):
                 if c_res is not None:
                     actual_C[:, i] = c_res * SCALE_FACTOR
             except cp.error.SolverError:
-                # Fallback 邏輯
                 pass
 
         actual_process_delay = np.zeros([self.M_sim, 1])
@@ -736,21 +607,6 @@ class UCMEC_no_front_obs_env(object):
         # store component delays for evaluation
         self.uplink_delay_last = uplink_delay
         self.actual_process_delay_last = actual_process_delay
-        '''
-        process_delay = cp.max(cp.multiply(task_mat, cp.inv_pos(C)))  # Mx1
-        func = cp.Minimize(cp.sum(cp.maximum(local_delay, front_delay + uplink_delay + process_delay)))
-        # func = cp.Minimize(cp.sum(cp.maximum(local_delay, process_delay)))
-        cons = [0 <= C]
-        for i in range(K):
-            cons += [cp.sum(C[:, i]) <= C_edge[i, 0]]
-
-        prob = cp.Problem(func, cons)
-        prob.solve(solver=cp.SCS, verbose=False)
-        actual_C = C.value
-        actual_process_delay = np.max(task_mat / actual_C, axis=1)
-        # print(actual_process_delay)
-        # print(C.value)
-        '''
 
         # # reward calculation
         # print("Uplink Delay:", uplink_delay)
@@ -780,7 +636,6 @@ class UCMEC_no_front_obs_env(object):
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            #reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
             reward[i, 0] = -total_delay_clip[i, 0]
         
         # === 每個 time step 的統計量 (之後會塞進 info) ===
@@ -828,16 +683,11 @@ class UCMEC_no_front_obs_env(object):
                 print("No Offloading Users")
 
         # task parameter
-        '''
-        #Task_size_next = self.rng.uniform(50000, 100000, [1, self.M])  # task size in bit
-        Task_size_next = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
-        Task_density_next = self.rng.uniform(500, 1000, [1, self.M])  # task density cpu cycles per bit
-        '''
-        #調整task大小跟密度試試
+        
+        #調整task大小跟密度
         Task_size_next = self.rng.uniform(409600, 819200, [1, self.M])  # 單位從KB改成bits，根據論文修改
         Task_density_next = self.rng.uniform(500, 1000, [1, self.M])
 
-        # Task_max_delay = self.rng.uniform(2, 5, [1, M])  # task max delay in second
         # 更新 self，給下一次 step 用
         self.Task_size = Task_size_next
         self.Task_density = Task_density_next
@@ -863,14 +713,14 @@ class UCMEC_no_front_obs_env(object):
             "bad_transition": is_time_limit_truncation,
         }
         for i in range(self.agent_num):
-            raw_obs = np.array([    #obs改為一次全部正規化
+            raw_obs = np.array([    #obs正規化
             self.Task_size[0, i],
             self.Task_density[0, i],
             self.omega_last[i],
             self.p_last[i],
             self.delay_last_clip[i, 0]
             ])
-            norm_obs = raw_obs / self.norm_factor #試試沒正規化
+            norm_obs = raw_obs / self.norm_factor 
             sub_agent_obs.append(norm_obs)
 
             sub_agent_reward.append(reward[i])

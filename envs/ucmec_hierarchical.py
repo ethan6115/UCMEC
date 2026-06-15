@@ -575,12 +575,7 @@ class UCMEC_hierarchical_env(object):
                 for j in range(self.N_sim):
                     if cluster_matrix[i, j] == 1:
                         inter_term += theta[i, j] * self.beta[k, j] * p[k]
-            '''
-            # 加入其他 M 個背景 user 的干擾（對標 big_3_2）
-            for j in range(self.N_sim):
-                if cluster_matrix[i, j] == 1:
-                    inter_term += theta[i, j] * np.sum(self.beta[self.M_sim:self.M, j]) * self.P_max
-            '''
+            
             SINR = useful / (inter_term + noise_term)
             raw_rate = self.bandwidth_a * np.log2(1 + SINR)
             uplink_rate_access[i, 0] = max(raw_rate, 1e-9)  # clip，避免 0
