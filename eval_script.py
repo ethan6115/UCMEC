@@ -4,8 +4,7 @@ import sys
 import os
 import copy
 import json
-# 將 UCMEC-mmWave-Fronthaul 資料夾加入系統路徑，以確保能匯入 envs 和 algorithms
-# 假設此腳本位於 UCMEC-mmWave-Fronthaul 資料夾的上一層或同層
+
 current_path = os.getcwd()
 sys.path.append(os.path.join(current_path, "UCMEC-mmWave-Fronthaul"))
 
@@ -26,7 +25,6 @@ USE_FLAT_JOINT = _env_bool("EVAL_USE_FLAT_JOINT", False)
 USE_HIERARCHICAL = _env_bool("EVAL_USE_HIERARCHICAL", True)
 PER_USER = _env_bool("EVAL_PER_USER", True)
 HIERARCHICAL_INTERVAL = 10
-#HIERARCHICAL_INTERVAL = 10
 USE_RECURRENT = _env_bool("EVAL_USE_RECURRENT", True)
 DEBUG_HIGH_ACTION_PROBS = False  # Print Bernoulli bit probs / AP mapping at high-level decision steps.
 USE_PIVOTAL_STATS = False
@@ -66,8 +64,8 @@ def make_env(seed):
 
 
 #high ablation no global and rnn
-MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_499.pt")
-MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run2/models/actor_high.pt")
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_interval5_datachunk20/run1/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_interval5_datachunk20/run1/models/actor_high.pt")
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:
@@ -1230,6 +1228,9 @@ def evaluate(model_path):
                 "candidate_n": int(getattr(env, "candidate_n", -1)),
                 "k_fixed": int(getattr(env, "k_fixed", -1)),
                 "high_action_dim": int(getattr(env, "high_action_dim", -1)),
+                "speed_min_mps": float(getattr(env, "speed_min_mps", float("nan"))),
+                "speed_max_mps": float(getattr(env, "speed_max_mps", float("nan"))),
+                "speed_norm_ref_mps": float(getattr(env, "speed_norm_ref_mps", float("nan"))),
             },
             "seeds": [int(s) for s in SEEDS],
             "episodes_per_seed": int(EPISODES_PER_SEED),

@@ -81,6 +81,15 @@ class UCMEC_hierarchical_env(object):
 
         # access channel parameter
         self.tau_c = 0.1  # coherence time = 100ms
+        self.speed_min_mps = float(os.environ.get("UCMEC_SPEED_MIN_MPS", 10.0))
+        self.speed_max_mps = float(os.environ.get("UCMEC_SPEED_MAX_MPS", 20.0))
+        if self.speed_min_mps < 0 or self.speed_max_mps < self.speed_min_mps:
+            raise ValueError(
+                "Invalid mobility speed range: "
+                f"UCMEC_SPEED_MIN_MPS={self.speed_min_mps}, "
+                f"UCMEC_SPEED_MAX_MPS={self.speed_max_mps}"
+            )
+        self.speed_norm_ref_mps = 20.0
         self.L = 140.7
         self.d_0 = 10  # path-loss distance threshold
         self.d_1 = 50  # path-loss distance threshold，從50改為論文的15
@@ -179,14 +188,12 @@ class UCMEC_hierarchical_env(object):
             low=-np.inf, high=np.inf, shape=(self.M_sim, self.high_obs_dim), dtype=np.float32
         )
         self._top10_ap_idx = None
-        # 高層 reward 用 log-front: front_term = min(log1p(raw/ref), cap)
         self.front_ref = self.tau_c   # 0.1s, 用 τ_c 當歸一化基準
         self.front_cap = 10.0
-        self.lambda_front = 0.5
         self._segment_delay_sum = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_uplink_sum = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_front_sum = np.zeros((self.M_sim,), dtype=np.float32)
-        self._segment_front_log_sum = np.zeros((self.M_sim,), dtype=np.float32)  # log-front for reward
+        self._segment_front_log_sum = np.zeros((self.M_sim,), dtype=np.float32) 
         self._segment_delay_count = 0
         self._segment_avg_delay = np.zeros((self.M_sim,), dtype=np.float32)
         self._segment_avg_uplink = np.zeros((self.M_sim,), dtype=np.float32)
@@ -272,11 +279,6 @@ class UCMEC_hierarchical_env(object):
             return np.zeros((self.M_sim,), dtype=np.float32)
         count = max(1, self._segment_delay_count)
         avg_total = self._segment_delay_sum / count
-        offload_den = np.maximum(self._segment_offload_count, 1.0)
-        # 用 log-front (壓縮極端值，保留區分度)
-        avg_front_log = self._segment_front_log_sum / offload_den
-
-        #reward = -(avg_total + self.lambda_front * avg_front_log).astype(np.float32)
         reward = -(avg_total).astype(np.float32)
         return reward
 
@@ -408,11 +410,13 @@ class UCMEC_hierarchical_env(object):
         self._reset_segment_stats()
         self._pending_high_action = None
 
+    def _speed_bounds_per_slot(self):
+        return self.speed_min_mps * self.tau_c, self.speed_max_mps * self.tau_c
+
     def advance_channel(self):
         # Update positions, pathloss, and channel for the current slot.
         if self.is_mobile:
-            max_speed = 20 * self.tau_c
-            min_speed = 10 * self.tau_c
+            min_speed, max_speed = self._speed_bounds_per_slot()
             for i in range(self.M):
                 dx = self.user_dest[i, 0] - self.locations_users[i, 0]
                 dy = self.user_dest[i, 1] - self.locations_users[i, 1]
@@ -514,8 +518,8 @@ class UCMEC_hierarchical_env(object):
         uplink_norm = (self._segment_avg_uplink / self.max_delay).reshape(self.M_sim, 1)
         front_norm = (self._segment_avg_front / self.max_delay).reshape(self.M_sim, 1)
         pos_norm = (self.locations_users[:self.M_sim, :2] / 900.0).astype(np.float32)
-        max_speed = 20 * self.tau_c
-        # Directional velocity (vx, vy), normalized by max speed to roughly [-1, 1].
+        max_speed = self.speed_norm_ref_mps * self.tau_c
+        # Directional velocity (vx, vy), normalized by the training speed scale.
         if self.is_mobile and self.user_dest is not None and self.user_speed is not None:
             vel_vec = (self.user_dest[:self.M_sim, :2] - self.locations_users[:self.M_sim, :2]).astype(np.float32)
             vel_dist = np.linalg.norm(vel_vec, axis=1, keepdims=True)
@@ -637,8 +641,7 @@ class UCMEC_hierarchical_env(object):
     def reset(self):
         #重製mobility
         if self.is_mobile:
-            max_speed = 20 * self.tau_c     #根據論文改成10~20
-            min_speed = 10 * self.tau_c
+            min_speed, max_speed = self._speed_bounds_per_slot()
 
             # 每個 user 的當前 waypoint
             self.user_dest = self.rng.random((self.M, 2)) * 900  
@@ -884,7 +887,6 @@ class UCMEC_hierarchical_env(object):
         self._segment_delay_sum += segment_delay.astype(np.float32)
         self._segment_uplink_sum += segment_uplink.astype(np.float32)
         self._segment_front_sum += segment_front.astype(np.float32)
-        # log-front: 用 raw front_delay 計算，給高層 reward 用
         front_log_term = np.minimum(
             np.log1p(front_delay_raw[:self.M_sim, 0] / self.front_ref),
             self.front_cap
@@ -918,7 +920,6 @@ class UCMEC_hierarchical_env(object):
 
         reward = np.zeros([self.M_sim, 1])
         for i in range(self.M_sim):
-            #reward[i, 0] = -0.9 * total_delay_clip[i, 0] + 0.1 * (self.tau_c - total_delay_clip[i, 0])  #原來的reward
             reward[i, 0] = -total_delay_clip[i, 0]
         
         # === 每個 time step 的統計量 (之後會塞進 info) ===
@@ -944,16 +945,7 @@ class UCMEC_hierarchical_env(object):
             avg_front_delay_ms = 0.0
             avg_actual_process_delay_ms = 0.0
             avg_uplink_rate_Mbps = 0.0
-        '''old reward
-        # High-level reward: total delay + deadline exceed penalty.
-        exceed = np.maximum(total_delay - self.tau_c, 0.0)
-        deadline_penalty = float(np.mean(exceed))
-        self.high_reward_step = -(
-            avg_total_delay_ms / 1000.0
-            + deadline_penalty
-        )
-        '''
-        # 用DSR做reward試試
+        
         # Interval-level high reward: accumulate per-step delays, compute once at interval end.
         D = total_delay_clip[:self.M_sim, 0]
         self._interval_delays.extend(D.tolist())
