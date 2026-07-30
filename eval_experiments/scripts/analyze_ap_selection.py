@@ -3,18 +3,24 @@ import contextlib
 import io
 import json
 import math
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
 import torch
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_ROOT = REPO_ROOT / "eval_experiments" / "outputs"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from algorithms.algorithm.high_actor_critic import HighActor
 from algorithms.algorithm.r_actor_critic import R_Actor
 from config import get_config
 with contextlib.redirect_stderr(io.StringIO()):
     from envs.ucmec_hierarchical import UCMEC_hierarchical_env
-from model_configs import MODEL_CONFIGS
+from eval_experiments.configs.model_configs import MODEL_CONFIGS
 
 
 SEEDS = [
@@ -29,8 +35,8 @@ EPISODES_PER_SEED = 1
 HIERARCHICAL_INTERVAL = 10
 EXPECTED_CANDIDATE_N = 10
 EXPECTED_K_FIXED = 2
-OUTPUT_DIR = Path("ap_selection_outputs")
-MAIN_SWEEP_CSV = Path("sweep_outputs/20260518_210501/eval_sweep_results.csv")
+OUTPUT_DIR = OUTPUT_ROOT / "ap_selection_outputs"
+MAIN_SWEEP_CSV = OUTPUT_ROOT / "sweep_outputs" / "20260518_210501" / "eval_sweep_results.csv"
 
 METHOD_NAMES = ("Access-Greedy", "Fronthaul-Greedy", "Proposed HDRL")
 MAIN_TOTAL_DELAY_METHODS = {
@@ -94,8 +100,8 @@ def _configure_high_args_from_checkpoint(high_args, env, state_dict):
 
 def _load_actors(env, cfg, device):
     args, high_args = _make_args()
-    low_path = Path(cfg["env"]["EVAL_MODEL_LOW"])
-    high_path = Path(cfg["env"]["EVAL_MODEL_HIGH"])
+    low_path = REPO_ROOT / cfg["env"]["EVAL_MODEL_LOW"]
+    high_path = REPO_ROOT / cfg["env"]["EVAL_MODEL_HIGH"]
     if not low_path.exists():
         raise FileNotFoundError(low_path)
     if not high_path.exists():
@@ -312,7 +318,7 @@ def _main_total_delay():
 
 
 def _write_outputs(run_outputs, merged, rank_hist, total_delay):
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     summary_path = OUTPUT_DIR / "ap_selection_summary.json"
     table_path = OUTPUT_DIR / "ap_selection_quality_table.csv"
     hist_path = OUTPUT_DIR / "proposed_rank_pair_distribution.csv"

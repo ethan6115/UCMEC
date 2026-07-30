@@ -218,6 +218,7 @@ class UCMEC_hierarchical_env(object):
         self.p_idx_last = np.zeros([self.M_sim], dtype=np.int32)
         self.delay_last = np.zeros([self.M_sim, 1])
         self.delay_last_clip = np.zeros([self.M_sim, 1])
+        self.front_delay_raw_last = np.zeros([self.M_sim, 1])
         self.action_space = spaces.Tuple(tuple([spaces.Discrete(self.action_dim)] * self.n_agents))
         # state space: [r_1(t-1),r_2(t-1),...,r_M(t-1)]  1xM continuous vector. -> uplink rate
         # r in [0, 10e8]
@@ -864,6 +865,7 @@ class UCMEC_hierarchical_env(object):
 
         self.uplink_delay_last = uplink_delay
         self.front_delay_last = front_delay
+        self.front_delay_raw_last = front_delay_raw
         self.actual_process_delay_last = actual_process_delay
 
         

@@ -8,7 +8,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from model_configs import MODEL_CONFIGS
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_ROOT = REPO_ROOT / "eval_experiments" / "outputs"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from eval_experiments.configs.model_configs import MODEL_CONFIGS
 
 
 DEFAULT_ENV = {
@@ -40,7 +45,7 @@ def _missing_paths():
         env = cfg["env"]
         for key in ("EVAL_MODEL_LOW", "EVAL_MODEL_HIGH", "EVAL_MODEL_FLAT"):
             path = env.get(key, "")
-            if path and not Path(path).exists():
+            if path and not (REPO_ROOT / path).exists():
                 missing.append((cfg["name"], key, path))
     return missing
 
@@ -76,8 +81,8 @@ def _run_eval(model_cfg, sweep_key, sweep_value, output_dir, log_dir):
 
     start = time.time()
     proc = subprocess.run(
-        [sys.executable, "eval_script.py"],
-        cwd=str(Path(__file__).resolve().parent),
+        [sys.executable, str(REPO_ROOT / "eval_script.py")],
+        cwd=str(REPO_ROOT),
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -139,7 +144,7 @@ def main():
         raise SystemExit(1)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path("sweep_outputs") / timestamp
+    output_dir = OUTPUT_ROOT / "sweep_outputs" / timestamp
     log_dir = output_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=False)
 

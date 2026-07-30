@@ -121,6 +121,7 @@ def _snapshot_env(env):
         "p_idx_last": env.p_idx_last.copy(),
         "delay_last": env.delay_last.copy(),
         "delay_last_clip": env.delay_last_clip.copy(),
+        "front_delay_raw_last": env.front_delay_raw_last.copy() if hasattr(env, "front_delay_raw_last") else None,
         "uplink_rate_access_b": env.uplink_rate_access_b.copy(),
         "step_num": int(env.step_num),
         "_channel_ready": env._channel_ready,
@@ -166,6 +167,8 @@ def _restore_env(env, snap):
     env.p_idx_last = snap["p_idx_last"].copy()
     env.delay_last = snap["delay_last"].copy()
     env.delay_last_clip = snap["delay_last_clip"].copy()
+    if snap.get("front_delay_raw_last") is not None:
+        env.front_delay_raw_last = snap["front_delay_raw_last"].copy()
     env.uplink_rate_access_b = snap["uplink_rate_access_b"].copy()
     env.step_num = snap["step_num"]
     env._channel_ready = snap["_channel_ready"]
@@ -492,6 +495,8 @@ def evaluate(model_path):
         "avg_front_rate_Mbps": [],
         "front_rate_Mbps_max": [],
         "front_rate_Mbps_p95": [],
+        "front_delay_raw_gt_2s_ratio": [],
+        "total_delay_raw_gt_2s_ratio": [],
         "avg_actual_process_delay_ms": [],
         "avg_uplink_rate_Mbps": [],
         "avg_offloading_users": [],
@@ -543,6 +548,10 @@ def evaluate(model_path):
         allsum_avg_front_rate = 0.0
         allsum_front_rate_max = 0.0
         allsum_front_rate_p95 = 0.0
+        allsum_front_delay_raw_gt_2s_count = 0
+        allsum_front_delay_raw_offload_count = 0
+        allsum_total_delay_raw_gt_2s_count = 0
+        allsum_total_delay_raw_count = 0
         allsum_avg_actual_process_delay = 0.0
         allsum_avg_uplink_rate = 0.0
         allsum_num_offloading_users = 0.0
@@ -600,6 +609,10 @@ def evaluate(model_path):
             sum_avg_front_rate = 0.0
             sum_front_rate_max = 0.0
             sum_front_rate_p95 = 0.0
+            sum_front_delay_raw_gt_2s_count = 0
+            sum_front_delay_raw_offload_count = 0
+            sum_total_delay_raw_gt_2s_count = 0
+            sum_total_delay_raw_count = 0
             sum_avg_actual_process_delay = 0.0
             sum_avg_uplink_rate = 0.0
             sum_num_offloading_users = 0.0
@@ -939,6 +952,15 @@ def evaluate(model_path):
                                     sum_avg_front_rate += float(np.mean(front_rate_mbps))
                                     sum_front_rate_max += float(np.max(front_rate_mbps))
                                     sum_front_rate_p95 += float(np.percentile(front_rate_mbps, 95))
+                        if hasattr(env, "front_delay_raw_last") and hasattr(env, "omega_last"):
+                            front_delay_raw = env.front_delay_raw_last
+                            omega = env.omega_last
+                            if front_delay_raw is not None and omega is not None:
+                                offload_mask = omega != 0
+                                if np.any(offload_mask):
+                                    raw_front_off = front_delay_raw[offload_mask, 0]
+                                    sum_front_delay_raw_gt_2s_count += int(np.sum(raw_front_off > 2.0))
+                                    sum_front_delay_raw_offload_count += int(raw_front_off.size)
                         metric_steps += 1
                         # Per-agent delay probability (all agents vs offloading only).
                         if hasattr(env, "delay_last") and hasattr(env, "omega_last"):
@@ -948,6 +970,8 @@ def evaluate(model_path):
                                 delay_ms = delay_last[:env.M_sim, 0] * 1000.0
                                 sum_total_delay_max += float(np.max(delay_ms))
                                 sum_total_delay_p95 += float(np.percentile(delay_ms, 95))
+                                sum_total_delay_raw_gt_2s_count += int(np.sum(delay_last[:env.M_sim, 0] > 2.0))
+                                sum_total_delay_raw_count += int(delay_last[:env.M_sim, 0].size)
                                 sum_deadline_satisfaction_ratio += float(np.sum(delay_ms <= env.tau_c * 1000.0))
                                 sum_agent_steps += int(delay_ms.size)
                                 offload_mask = omega_last != 0
@@ -1020,6 +1044,10 @@ def evaluate(model_path):
                     allsum_offloading_deadline_satisfaction_ratio += sum_offloading_deadline_satisfaction_ratio / sum_offload_steps
             allsum_offload_count += sum_offload_count
             allsum_offload_fail_count += sum_offload_fail_count
+            allsum_front_delay_raw_gt_2s_count += sum_front_delay_raw_gt_2s_count
+            allsum_front_delay_raw_offload_count += sum_front_delay_raw_offload_count
+            allsum_total_delay_raw_gt_2s_count += sum_total_delay_raw_gt_2s_count
+            allsum_total_delay_raw_count += sum_total_delay_raw_count
             allsum_front_bottleneck_offload_count += sum_front_bottleneck_offload_count
             allsum_front_bottleneck_offload_fail_count += sum_front_bottleneck_offload_fail_count
             allsum_fail_bottleneck_uplink_count += sum_fail_bottleneck_uplink_count
@@ -1068,6 +1096,12 @@ def evaluate(model_path):
         seed_results["avg_front_rate_Mbps"].append(allsum_avg_front_rate / num_episodes)
         seed_results["front_rate_Mbps_max"].append(allsum_front_rate_max / num_episodes)
         seed_results["front_rate_Mbps_p95"].append(allsum_front_rate_p95 / num_episodes)
+        seed_results["front_delay_raw_gt_2s_ratio"].append(
+            allsum_front_delay_raw_gt_2s_count / max(1, int(allsum_front_delay_raw_offload_count))
+        )
+        seed_results["total_delay_raw_gt_2s_ratio"].append(
+            allsum_total_delay_raw_gt_2s_count / max(1, int(allsum_total_delay_raw_count))
+        )
         seed_results["avg_actual_process_delay_ms"].append(allsum_avg_actual_process_delay / num_episodes)
         seed_results["avg_uplink_rate_Mbps"].append(allsum_avg_uplink_rate / num_episodes)
         seed_results["avg_offloading_users"].append(allsum_num_offloading_users / num_episodes)

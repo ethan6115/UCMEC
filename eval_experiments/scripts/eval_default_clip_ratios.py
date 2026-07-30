@@ -8,38 +8,30 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ablation_configs import ABLATION_CONFIGS
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_ROOT = REPO_ROOT / "eval_experiments" / "outputs"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from eval_experiments.configs.model_configs import MODEL_CONFIGS
+from eval_experiments.scripts.eval_sweep import DEFAULT_ENV
 
 
 METRICS = [
-    "avg_total_delay_ms",
-    "avg_local_delay_ms",
-    "avg_uplink_delay_ms",
-    "avg_front_delay_ms",
-    "avg_actual_process_delay_ms",
-    "avg_offloading_users",
+    "front_delay_raw_gt_2s_ratio",
+    "total_delay_raw_gt_2s_ratio",
 ]
 
 
 def _missing_paths():
     missing = []
-    for cfg in ABLATION_CONFIGS:
+    for cfg in MODEL_CONFIGS:
         env = cfg["env"]
         for key in ("EVAL_MODEL_LOW", "EVAL_MODEL_HIGH", "EVAL_MODEL_FLAT"):
             path = env.get(key, "")
-            if path and not Path(path).exists():
+            if path and not (REPO_ROOT / path).exists():
                 missing.append((cfg["name"], key, path))
     return missing
-
-
-def _format_line(summary):
-    return (
-        f"total={summary['avg_total_delay_ms_mean']:8.3f} "
-        f"local={summary['avg_local_delay_ms_mean']:8.3f} "
-        f"uplink={summary['avg_uplink_delay_ms_mean']:8.3f} "
-        f"front={summary['avg_front_delay_ms_mean']:8.3f} "
-        f"offload={summary['avg_offloading_users_mean']:6.3f}"
-    )
 
 
 def _write_failure_logs(log_dir, tag, proc):
@@ -52,17 +44,18 @@ def _write_failure_logs(log_dir, tag, proc):
 
 def _run_eval(cfg, output_dir, log_dir):
     env = os.environ.copy()
+    env.update(DEFAULT_ENV)
     env.update(cfg["env"])
 
-    fd, json_path = tempfile.mkstemp(prefix="ucmec_ablation_", suffix=".json", dir=str(output_dir))
+    fd, json_path = tempfile.mkstemp(prefix="ucmec_default_clip_", suffix=".json", dir=str(output_dir))
     os.close(fd)
     Path(json_path).unlink(missing_ok=True)
     env["EVAL_OUTPUT_JSON"] = json_path
 
     start = time.time()
     proc = subprocess.run(
-        [sys.executable, "eval_script.py"],
-        cwd=str(Path(__file__).resolve().parent),
+        [sys.executable, str(REPO_ROOT / "eval_script.py")],
+        cwd=str(REPO_ROOT),
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -73,17 +66,12 @@ def _run_eval(cfg, output_dir, log_dir):
     tag = cfg["name"].replace("/", "_").replace(".", "p")
     if proc.returncode != 0:
         stdout_path, stderr_path = _write_failure_logs(log_dir, tag, proc)
-        raise RuntimeError(
-            f"eval_script.py failed for {cfg['name']}; logs: {stdout_path}, {stderr_path}"
-        )
+        raise RuntimeError(f"eval_script.py failed for {cfg['name']}; logs: {stdout_path}, {stderr_path}")
 
     json_file = Path(json_path)
     if not json_file.exists():
         stdout_path, stderr_path = _write_failure_logs(log_dir, tag, proc)
-        raise RuntimeError(
-            f"eval_script.py did not write JSON for {cfg['name']}; "
-            f"logs: {stdout_path}, {stderr_path}"
-        )
+        raise RuntimeError(f"eval_script.py did not write JSON for {cfg['name']}; logs: {stdout_path}, {stderr_path}")
 
     with json_file.open("r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -95,64 +83,50 @@ def _row_from_payload(cfg, payload):
     summary = payload["summary"]
     env_meta = payload.get("env", {})
     row = {
-        "group": cfg["group"],
-        "variant": cfg["variant"],
+        "method": cfg["method"],
         "run": cfg["run"],
         "name": cfg["name"],
         "m_sim": env_meta.get("m_sim"),
         "n_sim": env_meta.get("n_sim"),
         "epsilon": env_meta.get("epsilon"),
-        "candidate_n": env_meta.get("candidate_n"),
-        "k_fixed": env_meta.get("k_fixed"),
-        "high_action_dim": env_meta.get("high_action_dim"),
-        "high_policy_mode": payload.get("mode", {}).get("high_policy_mode"),
-        "use_hierarchical": payload.get("mode", {}).get("use_hierarchical"),
     }
     for metric in METRICS:
         row[f"{metric}_mean"] = summary.get(f"{metric}_mean")
         row[f"{metric}_std"] = summary.get(f"{metric}_std")
+        row[f"{metric}_per_seed"] = json.dumps(summary.get(f"{metric}_per_seed"), separators=(",", ":"))
     return row
 
 
+def _format_line(summary):
+    return (
+        f"front_raw>2s={summary['front_delay_raw_gt_2s_ratio_mean']:.6f} "
+        f"total_raw>2s={summary['total_delay_raw_gt_2s_ratio_mean']:.6f}"
+    )
+
+
 def main():
-    if len(ABLATION_CONFIGS) == 0:
-        raise SystemExit("ABLATION_CONFIGS is empty.")
+    if len(MODEL_CONFIGS) == 0:
+        raise SystemExit("MODEL_CONFIGS is empty.")
 
     missing = _missing_paths()
     if missing:
-        print("Missing model paths; aborting ablation eval:")
+        print("Missing model paths; aborting default clip-ratio eval:")
         for name, key, path in missing:
             print(f"  {name}: {key} -> {path}")
         raise SystemExit(1)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path("ablation_outputs") / timestamp
+    output_dir = OUTPUT_ROOT / "default_clip_ratio_outputs" / timestamp
     log_dir = output_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=False)
 
-    csv_path = output_dir / "ablation_results.csv"
-    jsonl_path = output_dir / "ablation_results.jsonl"
-
-    fieldnames = [
-        "group",
-        "variant",
-        "run",
-        "name",
-        "m_sim",
-        "n_sim",
-        "epsilon",
-        "candidate_n",
-        "k_fixed",
-        "high_action_dim",
-        "high_policy_mode",
-        "use_hierarchical",
-    ]
+    csv_path = output_dir / "default_clip_ratios.csv"
+    jsonl_path = output_dir / "default_clip_ratios.jsonl"
+    fieldnames = ["method", "run", "name", "m_sim", "n_sim", "epsilon"]
     for metric in METRICS:
-        fieldnames.extend([f"{metric}_mean", f"{metric}_std"])
+        fieldnames.extend([f"{metric}_mean", f"{metric}_std", f"{metric}_per_seed"])
 
-    print(f"Writing ablation results to {output_dir}")
-    print(f"Total ablation runs: {len(ABLATION_CONFIGS)}")
-
+    print(f"Writing results to {output_dir}")
     with csv_path.open("w", newline="", encoding="utf-8") as csv_file, jsonl_path.open(
         "w", encoding="utf-8"
     ) as jsonl_file:
@@ -160,32 +134,26 @@ def main():
         writer.writeheader()
         csv_file.flush()
 
-        for idx, cfg in enumerate(ABLATION_CONFIGS, start=1):
+        for idx, cfg in enumerate(MODEL_CONFIGS, start=1):
+            print(f"[{idx}/{len(MODEL_CONFIGS)}] {cfg['name']}")
             payload, elapsed = _run_eval(cfg, output_dir, log_dir)
             row = _row_from_payload(cfg, payload)
             writer.writerow(row)
             csv_file.flush()
 
-            json_record = {
-                "group": cfg["group"],
-                "variant": cfg["variant"],
+            record = {
+                "method": cfg["method"],
                 "run": cfg["run"],
                 "name": cfg["name"],
-                "config_env": cfg["env"],
-                "payload": payload,
+                "env": payload.get("env", {}),
+                "summary": {k: v for k, v in payload["summary"].items() if any(k.startswith(m) for m in METRICS)},
             }
-            jsonl_file.write(json.dumps(json_record, sort_keys=True) + "\n")
+            jsonl_file.write(json.dumps(record, sort_keys=True) + "\n")
             jsonl_file.flush()
+            print(f"  {_format_line(payload['summary'])} ({elapsed:.0f}s)")
 
-            print(
-                f"[{idx:03d}/{len(ABLATION_CONFIGS)}] "
-                f"{cfg['group']} {cfg['variant']} {cfg['run']} | "
-                f"{_format_line(payload['summary'])} ({elapsed:.0f}s)",
-                flush=True,
-            )
-
-    print(f"\nDone. CSV: {csv_path}")
-    print(f"Done. JSONL: {jsonl_path}")
+    print(f"\nCSV: {csv_path}")
+    print(f"JSONL: {jsonl_path}")
 
 
 if __name__ == "__main__":

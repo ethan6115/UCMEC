@@ -1,0 +1,198 @@
+{
+  "settings": {
+    "seeds": [
+      18,
+      62,
+      53,
+      14,
+      58,
+      161,
+      37,
+      4,
+      95,
+      150,
+      11,
+      1,
+      29,
+      189,
+      198,
+      153,
+      26,
+      59,
+      365,
+      84,
+      946,
+      56,
+      99,
+      75,
+      263,
+      776,
+      94,
+      71,
+      735,
+      64
+    ],
+    "episodes_per_seed": 1,
+    "hierarchical_interval": 10,
+    "candidate_n": 10,
+    "k_fixed": 2,
+    "front_quality": "max_cpu min_selected_ap normalized AP-CPU fronthaul pathloss quality",
+    "unit": "one sample per user per high-level decision interval"
+  },
+  "runs": [
+    {
+      "name": "Proposed_HDRL_run2",
+      "run": "run2",
+      "summary": {
+        "Access-Greedy": {
+          "samples": 6000,
+          "same_pair_rate": 1.0,
+          "one_ap_overlap_rate": 0.0,
+          "avg_selected_access_rank": 0.5,
+          "avg_front_bottleneck_quality_norm": 0.40409550153983625
+        },
+        "Fronthaul-Greedy": {
+          "samples": 6000,
+          "same_pair_rate": 0.042166666666666665,
+          "one_ap_overlap_rate": 0.3755,
+          "avg_selected_access_rank": 4.13825,
+          "avg_front_bottleneck_quality_norm": 0.7201478438534997
+        },
+        "Proposed HDRL": {
+          "samples": 6000,
+          "same_pair_rate": 0.0815,
+          "one_ap_overlap_rate": 0.4395,
+          "avg_selected_access_rank": 3.5141666666666667,
+          "avg_front_bottleneck_quality_norm": 0.7025413594549474
+        }
+      }
+    },
+    {
+      "name": "Proposed_HDRL_run3",
+      "run": "run3",
+      "summary": {
+        "Access-Greedy": {
+          "samples": 6000,
+          "same_pair_rate": 1.0,
+          "one_ap_overlap_rate": 0.0,
+          "avg_selected_access_rank": 0.5,
+          "avg_front_bottleneck_quality_norm": 0.40409550153983625
+        },
+        "Fronthaul-Greedy": {
+          "samples": 6000,
+          "same_pair_rate": 0.042166666666666665,
+          "one_ap_overlap_rate": 0.3755,
+          "avg_selected_access_rank": 4.13825,
+          "avg_front_bottleneck_quality_norm": 0.7201478438534997
+        },
+        "Proposed HDRL": {
+          "samples": 6000,
+          "same_pair_rate": 0.07933333333333334,
+          "one_ap_overlap_rate": 0.49483333333333335,
+          "avg_selected_access_rank": 3.3663333333333334,
+          "avg_front_bottleneck_quality_norm": 0.6977323779906809
+        }
+      }
+    },
+    {
+      "name": "Proposed_HDRL_run5",
+      "run": "run5",
+      "summary": {
+        "Access-Greedy": {
+          "samples": 6000,
+          "same_pair_rate": 1.0,
+          "one_ap_overlap_rate": 0.0,
+          "avg_selected_access_rank": 0.5,
+          "avg_front_bottleneck_quality_norm": 0.40409550153983625
+        },
+        "Fronthaul-Greedy": {
+          "samples": 6000,
+          "same_pair_rate": 0.042166666666666665,
+          "one_ap_overlap_rate": 0.3755,
+          "avg_selected_access_rank": 4.13825,
+          "avg_front_bottleneck_quality_norm": 0.7201478438534997
+        },
+        "Proposed HDRL": {
+          "samples": 6000,
+          "same_pair_rate": 0.08466666666666667,
+          "one_ap_overlap_rate": 0.5191666666666667,
+          "avg_selected_access_rank": 3.2641666666666667,
+          "avg_front_bottleneck_quality_norm": 0.6926415459282792
+        }
+      }
+    }
+  ],
+  "merged": {
+    "Access-Greedy": {
+      "same_pair_rate": {
+        "mean": 1.0,
+        "se": 0.0
+      },
+      "one_ap_overlap_rate": {
+        "mean": 0.0,
+        "se": 0.0
+      },
+      "avg_selected_access_rank": {
+        "mean": 0.5,
+        "se": 0.0
+      },
+      "avg_front_bottleneck_quality_norm": {
+        "mean": 0.40409550153983625,
+        "se": 0.0
+      },
+      "samples": 18000
+    },
+    "Fronthaul-Greedy": {
+      "same_pair_rate": {
+        "mean": 0.042166666666666665,
+        "se": 0.0
+      },
+      "one_ap_overlap_rate": {
+        "mean": 0.3755,
+        "se": 0.0
+      },
+      "avg_selected_access_rank": {
+        "mean": 4.13825,
+        "se": 0.0
+      },
+      "avg_front_bottleneck_quality_norm": {
+        "mean": 0.7201478438534997,
+        "se": 0.0
+      },
+      "samples": 18000
+    },
+    "Proposed HDRL": {
+      "same_pair_rate": {
+        "mean": 0.08183333333333333,
+        "se": 0.0015485955405295936
+      },
+      "one_ap_overlap_rate": {
+        "mean": 0.4845,
+        "se": 0.02357101170065877
+      },
+      "avg_selected_access_rank": {
+        "mean": 3.3815555555555554,
+        "se": 0.07256901780842161
+      },
+      "avg_front_bottleneck_quality_norm": {
+        "mean": 0.6976384277913025,
+        "se": 0.002858216048847796
+      },
+      "samples": 18000
+    }
+  },
+  "main_total_delay_ms": {
+    "Proposed HDRL": {
+      "mean": 154.99105326334634,
+      "se": 1.9752010712180306
+    },
+    "Access-Greedy": {
+      "mean": 227.43672688802084,
+      "se": 0.22930736172753696
+    },
+    "Fronthaul-Greedy": {
+      "mean": 164.5821990966797,
+      "se": 0.5693456329018548
+    }
+  }
+}
