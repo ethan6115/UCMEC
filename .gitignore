@@ -18,3 +18,20 @@ events.out.tfevents.*
 .DS_Store
 Thumbs.db
 
+# Local AI assistant settings
+.claude/
+.agents/
+.codex
+
+# Personal scratch files
+scratch/
+tmp/
+*.local.py
+
+# Notebook cache
+.ipynb_checkpoints/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
