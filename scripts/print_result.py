@@ -1,6 +1,9 @@
 import os
 import scipy.io as scio
 import numpy as np
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # If matplotlib default config dir is not writable, force a writable fallback.
 # This avoids unstable backend/config behavior across runs.
@@ -65,8 +68,11 @@ mat_paths = [
 ]
 
 def load_reward(file_path):
-    """讀取單一 reward.mat，回傳 1D np.array，失敗則回傳 None"""
-    if not os.path.exists(file_path):
+    file_path = Path(file_path)
+    if not file_path.is_absolute():
+        file_path = REPO_ROOT / file_path
+
+    if not file_path.exists():
         print(f"錯誤: 找不到檔案 {file_path}")
         return None
 

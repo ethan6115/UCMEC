@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 import numpy as np
 import scipy.io as scio
@@ -90,7 +91,7 @@ def group_rewards():
     for cfg in TRAINING_REWARD_CONFIGS:
         method = cfg["method"]
         for path_str in cfg["runs"]:
-            path = Path(path_str)
+            path = REPO_ROOT / path_str
             reward = load_reward(path)
             grouped.setdefault(method, []).append(
                 {
@@ -111,6 +112,8 @@ def plot_training_rewards(
 ):
     grouped = group_rewards()
     output_dir = Path(output_dir)
+    if not output_dir.is_absolute():
+        output_dir = REPO_ROOT / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(8.5, 5.2), num="Training Rewards", clear=True)
