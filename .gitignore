@@ -35,3 +35,27 @@ tmp/
 .env
 .env.*
 !.env.example
+
+# Evaluation outputs: keep only the inputs used by paper_results.ipynb
+/eval_experiments/outputs/*
+
+!/eval_experiments/outputs/sweep_outputs/
+/eval_experiments/outputs/sweep_outputs/*
+!/eval_experiments/outputs/sweep_outputs/20260604_141550/
+
+!/eval_experiments/outputs/ablation_outputs/
+/eval_experiments/outputs/ablation_outputs/*
+!/eval_experiments/outputs/ablation_outputs/20260605_000221/
+
+!/eval_experiments/outputs/speed_sweep_outputs/
+/eval_experiments/outputs/speed_sweep_outputs/*
+!/eval_experiments/outputs/speed_sweep_outputs/20260725_164811/
+
+!/eval_experiments/outputs/default_clip_ratio_outputs/
+/eval_experiments/outputs/default_clip_ratio_outputs/*
+!/eval_experiments/outputs/default_clip_ratio_outputs/20260730_175639/
+/eval_experiments/outputs/default_clip_ratio_outputs/20260730_175639/*
+!/eval_experiments/outputs/default_clip_ratio_outputs/20260730_175639/default_clip_ratios.csv
+
+# Small summaries used for AP-selection analysis
+!/eval_experiments/outputs/ap_selection_outputs/
