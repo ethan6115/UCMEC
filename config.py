@@ -21,13 +21,13 @@ def get_config():
         --n_training_threads <int>
             number of training threads working in parallel. by default 1
         --n_rollout_threads <int>
-            number of parallel envs for training rollout. by default 32
+            number of parallel envs for training rollout (default: 20)
         --n_eval_rollout_threads <int>
             number of parallel envs for evaluating rollout. by default 1
         --n_render_rollout_threads <int>
             number of parallel envs for rendering, could only be set as 1 for some environments.
         --num_env_steps <int>
-            number of env steps to train (default: 10e6)
+            number of env steps to train (default: 2,000,000)
         --user_name <str>
             [for wandb usage], to specify user's name for simply collecting training data.
         --use_wandb
@@ -77,9 +77,9 @@ def get_config():
 
     Optimizer parameters:
         --lr <float>
-            learning rate parameter,  (default: 5e-4, fixed).
+            actor learning rate (default: 3e-4)
         --critic_lr <float>
-            learning rate of critic  (default: 5e-4, fixed)
+            critic learning rate (default: 3e-4)
         --opti_eps <float>
             RMSprop optimizer epsilon (default: 1e-5)
         --weight_decay <float>
@@ -87,13 +87,13 @@ def get_config():
 
     PPO parameters:
         --ppo_epoch <int>
-            number of ppo epochs (default: 15)
+            number of ppo epochs (default: 5)
         --use_clipped_value_loss
             by default, clip loss value. If set, do not clip loss value.
         --clip_param <float>
             ppo clip parameter (default: 0.2)
         --num_mini_batch <int>
-            number of batches for ppo (default: 1)
+            number of batches for ppo (default: 20)
         --entropy_coef <float>
             entropy term coefficient (default: 0.01)
         --use_max_grad_norm
@@ -158,7 +158,13 @@ def get_config():
     )
 
     # prepare parameters
-    parser.add_argument("--algorithm_name", type=str, default="mappo", choices=["rmappo", "mappo"])
+    parser.add_argument(
+        "--algorithm_name",
+        type=str,
+        default="rmappo",
+        choices=["rmappo", "mappo"],
+        help="training algorithm (default: rmappo)",
+    )
 
     parser.add_argument(
         "--experiment_name",
@@ -188,8 +194,8 @@ def get_config():
     parser.add_argument(
         "--n_rollout_threads",
         type=int,
-        default=1,
-        help="Number of parallel envs for training rollouts",
+        default=20,
+        help="Number of parallel envs for training rollouts (default: 20)",
     )
     parser.add_argument(
         "--n_eval_rollout_threads",
@@ -206,8 +212,8 @@ def get_config():
     parser.add_argument(
         "--num_env_steps",
         type=int,
-        default=20000,
-        help="Number of environment steps to train (default: 10e6)",
+        default=2000000,
+        help="Number of environment steps to train (default: 2,000,000)",
     )
     parser.add_argument(
         "--user_name",
@@ -286,8 +292,8 @@ def get_config():
         default=64,
         help="Dimension of hidden layers for actor/critic networks",
     )
-    # Reason: high-level has its own config; defaults match low-level to avoid behavior change.
-    parser.add_argument("--high_hidden_size", type=int, default=64, help="high-level hidden size")
+    # High-level policy uses its own network dimensions and optimizer settings.
+    parser.add_argument("--high_hidden_size", type=int, default=128, help="high-level hidden size (default: 128)")
     parser.add_argument("--high_num_heads", type=int, default=4, help="high-level attention heads")
     parser.add_argument(
         "--layer_N",
@@ -347,15 +353,15 @@ def get_config():
     parser.add_argument("--high_data_chunk_length", type=int, default=10, help="high-level chunk length")
 
     # optimizer parameters
-    parser.add_argument("--lr", type=float, default=5e-4, help="learning rate (default: 5e-4)")
+    parser.add_argument("--lr", type=float, default=3e-4, help="actor learning rate (default: 3e-4)")
     parser.add_argument(
         "--critic_lr",
         type=float,
-        default=5e-4,
-        help="critic learning rate (default: 5e-4)",
+        default=3e-4,
+        help="critic learning rate (default: 3e-4)",
     )
-    parser.add_argument("--high_lr", type=float, default=5e-4, help="high-level learning rate")
-    parser.add_argument("--high_critic_lr", type=float, default=5e-4, help="high-level critic learning rate")
+    parser.add_argument("--high_lr", type=float, default=3e-4, help="high-level actor learning rate (default: 3e-4)")
+    parser.add_argument("--high_critic_lr", type=float, default=3e-4, help="high-level critic learning rate (default: 3e-4)")
     parser.add_argument(
         "--opti_eps",
         type=float,
@@ -365,7 +371,7 @@ def get_config():
     parser.add_argument("--weight_decay", type=float, default=0)
 
     # ppo parameters
-    parser.add_argument("--ppo_epoch", type=int, default=15, help="number of ppo epochs (default: 15)")
+    parser.add_argument("--ppo_epoch", type=int, default=5, help="number of ppo epochs (default: 5)")
     parser.add_argument(
         "--use_clipped_value_loss",
         action="store_false",
@@ -381,8 +387,8 @@ def get_config():
     parser.add_argument(
         "--num_mini_batch",
         type=int,
-        default=1,
-        help="number of batches for ppo (default: 1)",
+        default=20,
+        help="number of batches for ppo (default: 20)",
     )
     parser.add_argument(
         "--entropy_coef",
@@ -426,9 +432,9 @@ def get_config():
         default=0.95,
         help="gae lambda parameter (default: 0.95)",
     )
-    parser.add_argument("--high_ppo_epoch", type=int, default=15, help="high-level ppo epochs")
+    parser.add_argument("--high_ppo_epoch", type=int, default=5, help="high-level ppo epochs (default: 5)")
     parser.add_argument("--high_clip_param", type=float, default=0.2, help="high-level ppo clip")
-    parser.add_argument("--high_num_mini_batch", type=int, default=1, help="high-level mini batches")
+    parser.add_argument("--high_num_mini_batch", type=int, default=10, help="high-level mini batches (default: 10)")
     parser.add_argument("--high_encoder_type", type=str, default="set",
                         choices=["set", "noattn-lp", "noattn-mp"],
                         help="high-level encoder: 'set' (attn+learned pool), "
