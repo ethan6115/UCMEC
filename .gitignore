@@ -43,19 +43,31 @@ tmp/
 /eval_experiments/outputs/sweep_outputs/*
 !/eval_experiments/outputs/sweep_outputs/20260604_141550/
 
+# Ablation 
 !/eval_experiments/outputs/ablation_outputs/
 /eval_experiments/outputs/ablation_outputs/*
 !/eval_experiments/outputs/ablation_outputs/20260605_000221/
 
+# Speed sweep
 !/eval_experiments/outputs/speed_sweep_outputs/
 /eval_experiments/outputs/speed_sweep_outputs/*
 !/eval_experiments/outputs/speed_sweep_outputs/20260725_164811/
 
+#clip ratio
 !/eval_experiments/outputs/default_clip_ratio_outputs/
 /eval_experiments/outputs/default_clip_ratio_outputs/*
 !/eval_experiments/outputs/default_clip_ratio_outputs/20260730_175639/
 /eval_experiments/outputs/default_clip_ratio_outputs/20260730_175639/*
 !/eval_experiments/outputs/default_clip_ratio_outputs/20260730_175639/default_clip_ratios.csv
 
+# Interval
+!/eval_experiments/outputs/interval_outputs/
+/eval_experiments/outputs/interval_outputs/*
+!/eval_experiments/outputs/interval_outputs/20260805_224837/
+/eval_experiments/outputs/interval_outputs/20260805_224837/*
+!/eval_experiments/outputs/interval_outputs/20260805_224837/interval_results.csv
+!/eval_experiments/outputs/interval_outputs/20260805_224837/interval_results.jsonl
+
 # Small summaries used for AP-selection analysis
 !/eval_experiments/outputs/ap_selection_outputs/
+

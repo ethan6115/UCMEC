@@ -24,7 +24,9 @@ def _env_str(name, default):
 USE_FLAT_JOINT = _env_bool("EVAL_USE_FLAT_JOINT", False)
 USE_HIERARCHICAL = _env_bool("EVAL_USE_HIERARCHICAL", True)
 PER_USER = _env_bool("EVAL_PER_USER", True)
-HIERARCHICAL_INTERVAL = 10
+HIERARCHICAL_INTERVAL = int(os.environ.get("EVAL_HIERARCHICAL_INTERVAL", "10"))
+if HIERARCHICAL_INTERVAL <= 0:
+    raise ValueError("EVAL_HIERARCHICAL_INTERVAL must be a positive integer")
 USE_RECURRENT = _env_bool("EVAL_USE_RECURRENT", True)
 DEBUG_HIGH_ACTION_PROBS = False  # Print Bernoulli bit probs / AP mapping at high-level decision steps.
 USE_PIVOTAL_STATS = False
@@ -64,8 +66,8 @@ def make_env(seed):
 
 
 #high ablation no global and rnn
-MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_interval5_datachunk20/run1/models/actor_499.pt")
-MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal_interval5_datachunk20/run1/models/actor_high.pt")
+MODEL_LOW = _env_str("EVAL_MODEL_LOW", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/models/actor_499.pt")
+MODEL_HIGH = _env_str("EVAL_MODEL_HIGH", r"results/MyEnv/nlos_cluster_high_ablation_v2/rmappo/hierarchical_pair_scorer_noglobal/run1/models/actor_high.pt")
 MODEL_FLAT = _env_str("EVAL_MODEL_FLAT", globals().get("MODEL_FLAT", r"results/MyEnv/nlos_cluster_v2/rmappo/flat_drl/run1/models/actor_499.pt"))
 
 try:
@@ -1262,6 +1264,7 @@ def evaluate(model_path):
                 "candidate_n": int(getattr(env, "candidate_n", -1)),
                 "k_fixed": int(getattr(env, "k_fixed", -1)),
                 "high_action_dim": int(getattr(env, "high_action_dim", -1)),
+                "hierarchical_interval": int(HIERARCHICAL_INTERVAL),
                 "speed_min_mps": float(getattr(env, "speed_min_mps", float("nan"))),
                 "speed_max_mps": float(getattr(env, "speed_max_mps", float("nan"))),
                 "speed_norm_ref_mps": float(getattr(env, "speed_norm_ref_mps", float("nan"))),
