@@ -94,7 +94,7 @@ All training commands must be executed from the project root directory.
 
 The default hierarchical training environment in `envs/env_discrete.py` is configured for the proposed method. Different baseline and ablation environments require changing the corresponding import before training.
 
-See the [Experiment Reproduction Guide](https://hackmd.io/@NYxxxUJHS0CbH0fXRVVbew/rJYklAWIMe) for all environment configurations.
+See the [Experiment Operation Guide](https://hackmd.io/@NYxxxUJHS0CbH0fXRVVbew/rJYklAWIMe) for all environment configurations.
 ### Step 2: Train the Proposed Model
 
 ```bash
@@ -114,7 +114,7 @@ results/MyEnv/<scenario_name>/rmappo/<experiment_name>/run<N>/
 
 The `run<N>` directory is created automatically for each new run.
 
-Commands for all baselines and ablation studies are provided in the [Experiment Reproduction Guide](https://hackmd.io/@NYxxxUJHS0CbH0fXRVVbew/rJYklAWIMe).
+Commands for all baselines and ablation studies are provided in the [Experiment Operation Guide](https://hackmd.io/@NYxxxUJHS0CbH0fXRVVbew/rJYklAWIMe).
 
 ## 4. Model Evaluation
 
