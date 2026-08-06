@@ -41,8 +41,8 @@
   },
   "runs": [
     {
-      "name": "Proposed_HDRL_run2",
-      "run": "run2",
+      "name": "Proposed_HDRL_run1",
+      "run": "run1",
       "summary": {
         "Access-Greedy": {
           "samples": 6000,
@@ -68,8 +68,8 @@
       }
     },
     {
-      "name": "Proposed_HDRL_run3",
-      "run": "run3",
+      "name": "Proposed_HDRL_run2",
+      "run": "run2",
       "summary": {
         "Access-Greedy": {
           "samples": 6000,
@@ -95,8 +95,8 @@
       }
     },
     {
-      "name": "Proposed_HDRL_run5",
-      "run": "run5",
+      "name": "Proposed_HDRL_run3",
+      "run": "run3",
       "summary": {
         "Access-Greedy": {
           "samples": 6000,
@@ -183,16 +183,16 @@
   },
   "main_total_delay_ms": {
     "Proposed HDRL": {
-      "mean": 154.99105326334634,
-      "se": 1.9752010712180306
+      "mean": 153.42193094889322,
+      "se": 2.0349732663128783
     },
     "Access-Greedy": {
-      "mean": 227.43672688802084,
-      "se": 0.22930736172753696
+      "mean": 227.1609649658203,
+      "se": 0.3228171321991459
     },
     "Fronthaul-Greedy": {
-      "mean": 164.5821990966797,
-      "se": 0.5693456329018548
+      "mean": 162.21715799967447,
+      "se": 0.5541246003580466
     }
   }
 }

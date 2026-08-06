@@ -3,4 +3,4 @@ same_pair_rate,1.000000,0.042167,0.081833
 one_ap_overlap_rate,0.000000,0.375500,0.484500
 avg_selected_access_rank,0.500000,4.138250,3.381556
 avg_front_bottleneck_quality_norm,0.404096,0.720148,0.697638
-avg_total_delay_ms,227.436727,164.582199,154.991053
+avg_total_delay_ms,227.160965,162.217158,153.421931
