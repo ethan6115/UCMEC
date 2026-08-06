@@ -22,6 +22,7 @@ UCMEC/
 ├── requirements.txt         # Python dependencies
 └── README.md                # Installation and operation guide
 ```
+For an overview of the codebase architecture and module responsibilities, see the [Code Architecture and Module Guide](https://hackmd.io/@NYxxxUJHS0CbH0fXRVVbew/S1WmMef8Mg).
 ## Table of Contents
 
 1. [Requirements](#1-requirements)
