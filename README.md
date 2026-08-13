@@ -194,3 +194,9 @@ python scripts/draw_env.py
 ```
 
 This command generates and displays the default UCMEC environment layout, including users, access points, and the central processing unit.
+
+## Reference Implementation
+
+The main code structure and implementation in this project were developed with reference to the [qlt315/UCMEC-mmWave-Fronthaul](https://github.com/qlt315/UCMEC-mmWave-Fronthaul) repository.
+
+The UCMEC environment used in this project includes corrections and modifications to the original implementation. A detailed comparison of the environment implementations, including the identified issues, corrections, and experimental adjustments, is provided in the [UCMEC Environment Implementation Comparison](https://hackmd.io/@NYxxxUJHS0CbH0fXRVVbew/By4O4KTWfg).
